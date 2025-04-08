@@ -1,0 +1,44 @@
+# General
+*.log
+*.cache
+*.env
+.env.*
+
+# Composer
+/vendor
+/composer.lock
+
+# PHPStorm
+.idea/
+
+# Node
+/node_modules/
+
+# Laravel
+/storage/*.key
+/storage/logs/*
+/bootstrap/cache/*
+/public/storage
+/public/hot
+/public/mix-manifest.json
+/public/css/*.map
+/public/js/*.map
+
+# Symfony
+/var/
+/config/jwt/*.pem
+
+# Cache
+*.phpunit.result.cache
+.phpunit.cache
+
+# IDE specific
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+*.vscode/
+
+# OS generated
+.DS_Store
+Thumbs.db
