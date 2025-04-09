@@ -7,30 +7,64 @@ class AuthMiddleware
 {
     public static function check($requiredRole = null)
     {
-        $headers = getallheaders();
+        try {
+            // Get authorization header
+            $headers = getallheaders();
+            $authHeader = $headers['Authorization'] ?? '';
 
-        if (!isset($headers['Authorization'])) {
-            http_response_code(401);
-            echo json_encode(['message' => 'Authorization header missing']);
+            // Check if authorization header exists
+            if (empty($authHeader)) {
+                throw new Exception('Authorization header missing', 401);
+            }
+
+            // Extract token
+            if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+                throw new Exception('Invalid authorization header format', 401);
+            }
+            $token = $matches[1];
+
+            // Validate token
+            $decoded = JWTHandler::validateToken($token);
+            if (!$decoded) {
+                throw new Exception('Invalid or expired token', 401);
+            }
+
+            // Check if token has required claims
+            if (!isset($decoded->sub) || !isset($decoded->role)) {
+                throw new Exception('Malformed token payload', 401);
+            }
+
+            // Check role permission if required
+            if ($requiredRole && ($decoded->role !== $requiredRole)) {
+                throw new Exception('Insufficient permissions', 403);
+            }
+
+            return [
+                'user_id' => $decoded->sub,
+                'role' => $decoded->role
+            ];
+
+        } catch (Exception $e) {
+            http_response_code($e->getCode() ?: 401);
+            echo json_encode([
+                'message' => $e->getMessage(),
+                'error' => true
+            ]);
             exit;
         }
+    }
 
-        $authHeader = $headers['Authorization'];
-        $token = str_replace('Bearer ', '', $authHeader);
+    // Helper method to get authenticated user ID
+    public static function getAuthenticatedUserId()
+    {
+        $auth = self::check();
+        return $auth['user_id'] ?? null;
+    }
 
-        $decoded = JWTHandler::validateToken($token);
-        if (!$decoded) {
-            http_response_code(401);
-            echo json_encode(['message' => 'Invalid or expired token']);
-            exit;
-        }
-
-        if ($requiredRole && $decoded->role !== $requiredRole) {
-            http_response_code(403);
-            echo json_encode(['message' => 'Access denied: Insufficient permissions']);
-            exit;
-        }
-
-        return ['user_id' => $decoded->sub, 'role' => $decoded->role];
+    // Helper method to get authenticated user role
+    public static function getAuthenticatedUserRole()
+    {
+        $auth = self::check();
+        return $auth['role'] ?? null;
     }
 }

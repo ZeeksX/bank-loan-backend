@@ -12,36 +12,6 @@ class LoanApplicationController
         $this->loanApplicationService = new LoanApplicationService();
     }
 
-    // GET /api/loan_applications
-    public function index()
-    {
-        try {
-            $applications = $this->loanApplicationService-> getAllLoanApplications();
-            echo json_encode($applications);
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Failed to retrieve loan applications']);
-        }
-    }
-
-    // GET /api/loan_applications/{id}
-    public function show($id)
-    {
-        try {
-            $application = $this->loanApplicationService->getLoanApplicationById($id);
-
-            if ($application) {
-                echo json_encode($application);
-            } else {
-                http_response_code(404);
-                echo json_encode(['error' => 'Loan application not found']);
-            }
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Failed to retrieve loan application']);
-        }
-    }
-
     // POST /api/loans/apply
     public function createLoanApplication()
     {
@@ -73,45 +43,40 @@ class LoanApplicationController
         }
     }
 
-    // PUT/PATCH /api/loan_applications/{id}
-    public function update($id)
+    // GET /api/loans/customer/{id}
+    public function getCustomerLoans($customerId)
     {
         try {
-            $data = json_decode(file_get_contents("php://input"), true);
+            $loans = $this->loanApplicationService->getCustomerLoans($customerId);
 
-            if (!$data || !isset($data['status'])) {
-                throw new Exception('Status is required');
+            if (empty($loans)) {
+                echo json_encode([]);
+                return;
             }
 
-            $success = $this->loanApplicationService->updateLoanApplication($id, $data);
-
-            if ($success) {
-                echo json_encode(['message' => 'Loan application updated']);
-            } else {
-                http_response_code(404);
-                echo json_encode(['error' => 'Loan application not found']);
-            }
+            echo json_encode($loans);
         } catch (Exception $e) {
-            http_response_code(400);
+            http_response_code(500);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
 
-    // DELETE /api/loan_applications/{id}
-    public function destroy($id)
+    // GET /api/loans/application/{id}/status
+    public function getLoanApplicationStatus($applicationId)
     {
         try {
-            $success = $this->loanApplicationService->deleteLoanApplication($id);
+            $status = $this->loanApplicationService->getLoanApplicationStatus($applicationId);
 
-            if ($success) {
-                echo json_encode(['message' => 'Loan application deleted']);
-            } else {
+            if (!$status) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Loan application not found']);
+                return;
             }
+
+            echo json_encode($status);
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to delete loan application']);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 }
