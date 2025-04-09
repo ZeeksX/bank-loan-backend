@@ -26,8 +26,8 @@ class LoanApplicationService
     public function createLoanApplication(array $data)
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO loan_applications (customer_id, product_id, requested_amount, requested_term, purpose, status)
-            VALUES (:customer_id, :product_id, :requested_amount, :requested_term, :purpose, :status)"
+            "INSERT INTO loan_applications (customer_id, product_id, requested_amount, requested_term, purpose, status, application_reference)
+            VALUES (:customer_id, :product_id, :requested_amount, :requested_term, :purpose, :status, :application_reference)"
         );
         $stmt->execute([
             'customer_id' => $data['customer_id'],
@@ -35,7 +35,8 @@ class LoanApplicationService
             'requested_amount' => $data['requested_amount'],
             'requested_term' => $data['requested_term'],
             'purpose' => $data['purpose'],
-            'status' => 'submitted'
+            'status' => 'submitted',
+            'application_reference' => $data['application_reference']
         ]);
         return $this->pdo->lastInsertId();
     }
