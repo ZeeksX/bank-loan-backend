@@ -102,6 +102,7 @@ try {
             requested_amount DECIMAL(12, 2) NOT NULL,
             requested_term INT NOT NULL,
             purpose VARCHAR(100) NOT NULL,
+            application_reference VARCHAR(100) NOT NULL UNIQUE,
             application_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             status ENUM('submitted', 'under_review', 'approved', 'rejected', 'cancelled') NOT NULL DEFAULT 'submitted',
             reviewed_by INT NULL,

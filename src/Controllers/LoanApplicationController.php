@@ -23,7 +23,7 @@ class LoanApplicationController
             }
 
             // Validate required fields
-            $requiredFields = ['customer_id', 'product_id', 'requested_amount', 'requested_term', 'purpose'];
+            $requiredFields = ['customer_id', 'product_id', 'requested_amount', 'requested_term', 'purpose', 'application_reference'];
             foreach ($requiredFields as $field) {
                 if (!isset($data[$field])) {
                     throw new Exception("Missing required field: $field");

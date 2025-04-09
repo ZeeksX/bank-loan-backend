@@ -59,6 +59,7 @@ class LoanApplicationService
                 la.requested_amount,
                 la.requested_term,
                 la.purpose,
+                la.application_reference,
                 la.status as application_status,
                 la.application_date,
                 lp.name as product_name,
@@ -86,6 +87,7 @@ class LoanApplicationService
         $stmt = $this->pdo->prepare("
             SELECT 
                 la.application_id, 
+                la.application_reference,
                 la.status as application_status,
                 la.application_date,
                 la.review_date,
