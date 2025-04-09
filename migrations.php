@@ -37,7 +37,7 @@ try {
             country VARCHAR(50) NOT NULL,
             phone VARCHAR(20) NOT NULL,
             email VARCHAR(100) NOT NULL UNIQUE,
-            ssn VARCHAR(20) UNIQUE,
+            ssn VARCHAR(20) NOT NULL UNIQUE,
             income DECIMAL(12, 2),
             employment_status VARCHAR(50),
             credit_score INT,

@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../src/Controllers/CustomerController.php';
 require_once __DIR__ . '/../src/Controllers/LoanController.php';
+require_once __DIR__ . '/../src/Controllers/LoanProductController.php';
 require_once __DIR__ . '/../src/Controllers/AuthController.php';
 require_once __DIR__ . '/../src/Controllers/PaymentScheduleController.php';
 require_once __DIR__ . '/../src/Middleware/AuthMiddleware.php';
@@ -60,6 +61,11 @@ switch (true) {
         $controller->show($matches[1]);
         break;
 
+    // Get all loan products
+    case $requestUri === '/api/loans/products' && $requestMethod === 'GET':
+        $controller = new LoanProductController();
+        $controller->getAllLoanProducts();
+        break;
 
     default:
         http_response_code(404);

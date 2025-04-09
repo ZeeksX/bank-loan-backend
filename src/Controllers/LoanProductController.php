@@ -10,14 +10,14 @@ class LoanProductController
         $this->pdo = require __DIR__ . '/../../config/database.php';
     }
 
-    // GET /api/loan_products
-    public function index()
+    // GET /api/loans/products
+    public function getAllLoanProducts()
     {
         $stmt = $this->pdo->query("SELECT * FROM loan_products");
         echo json_encode($stmt->fetchAll());
     }
 
-    // GET /api/loan_products/{id}
+    // GET /api/loans/products/{id}
     public function show($id)
     {
         $stmt = $this->pdo->prepare("SELECT * FROM loan_products WHERE product_id = :id");
@@ -25,7 +25,7 @@ class LoanProductController
         echo json_encode($stmt->fetch());
     }
 
-    // POST /api/loan_products
+    // POST /api/loans/products
     public function store()
     {
         $data = json_decode(file_get_contents("php://input"), true);
@@ -48,7 +48,7 @@ class LoanProductController
         echo json_encode(['message' => 'Loan product created successfully']);
     }
 
-    // PUT/PATCH /api/loan_products/{id}
+    // PUT/PATCH /api/loans/products/{id}
     public function update($id)
     {
         $data = json_decode(file_get_contents("php://input"), true);
@@ -61,7 +61,7 @@ class LoanProductController
         echo json_encode(['message' => 'Loan product updated successfully']);
     }
 
-    // DELETE /api/loan_products/{id}
+    // DELETE /api/loans/products/{id}
     public function destroy($id)
     {
         $stmt = $this->pdo->prepare("DELETE FROM loan_products WHERE product_id = :id");

@@ -157,14 +157,14 @@ class AuthController
     {
         $data = json_decode(file_get_contents("php://input"), true);
 
-        if (!isset($data['refreshToken'])) {
+        if (!isset($data['refresh'])) {
             http_response_code(400);
             echo json_encode(['message' => 'Refresh token required']);
             return;
         }
 
         try {
-            $decoded = JWTHandler::validateToken($data['refreshToken']);
+            $decoded = JWTHandler::validateToken($data['refresh']);
 
             if ($decoded->type !== 'refresh') {
                 throw new Exception('Invalid token type');
@@ -176,7 +176,7 @@ class AuthController
                 JOIN customers c ON rt.customer_id = c.customer_id
                 WHERE rt.token = :token AND rt.expires_at > NOW()
             ");
-            $stmt->execute(['token' => $data['refreshToken']]);
+            $stmt->execute(['token' => $data['refresh']]);
             $tokenData = $stmt->fetch();
 
             if (!$tokenData) {
@@ -190,7 +190,7 @@ class AuthController
 
             echo json_encode([
                 'message' => 'Token refreshed successfully',
-                'accessToken' => $accessToken
+                'access_token' => $accessToken
             ]);
 
         } catch (Exception $e) {
