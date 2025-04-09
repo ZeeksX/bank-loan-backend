@@ -7,41 +7,52 @@ use Firebase\JWT\Key;
 class JWTHandler
 {
     private static $secret;
-    private static $expire;
 
     public static function init()
     {
+        // Initialize your environment variables. Adjust the path as needed.
         $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
         $dotenv->load();
 
         self::$secret = $_ENV['JWT_SECRET'];
-        self::$expire = $_ENV['JWT_EXPIRE_TIME'] ?? 3600;
     }
 
-    public static function generateToken($userId, $role)
+    /**
+     * Generates a JWT token.
+     *
+     * @param array $payload The custom payload claims.
+     * @param int   $expire  Expiration time in seconds.
+     *
+     * @return string The encoded JWT token.
+     */
+    public static function generateToken($payload, $expire)
     {
         self::init();
-        $payload = [
-            'iss' => 'http://localhost',
-            'iat' => time(),
-            'exp' => time() + self::$expire,
-            'sub' => $userId,
-            'role' => $role
-        ];
+        $issuedAt = time();
+        $tokenPayload = array_merge($payload, [
+            'iat' => $issuedAt,
+            'exp' => $issuedAt + $expire,
+            'iss' => 'http://localhost'
+        ]);
 
-        return JWT::encode($payload, self::$secret, 'HS256');
+        return JWT::encode($tokenPayload, self::$secret, 'HS256');
     }
 
+    /**
+     * Validates a JWT token.
+     *
+     * @param string $token The JWT token.
+     *
+     * @return mixed The decoded token if valid, or false on failure.
+     */
     public static function validateToken($token)
     {
         self::init();
-
         try {
             $decoded = JWT::decode($token, new Key(self::$secret, 'HS256'));
-            return $decoded; // Return the full decoded object
+            return $decoded;
         } catch (Exception $e) {
             return false;
         }
     }
-
 }

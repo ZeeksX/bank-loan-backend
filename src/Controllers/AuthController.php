@@ -16,7 +16,8 @@ class AuthController
     {
         $data = json_decode(file_get_contents("php://input"), true);
 
-        if (!isset(
+        if (
+            !isset(
             $data['first_name'],
             $data['last_name'],
             $data['email'],
@@ -28,7 +29,8 @@ class AuthController
             $data['postal_code'],
             $data['country'],
             $data['phone']
-        )) {
+        )
+        ) {
             http_response_code(400);
             echo json_encode(['message' => 'Missing required fields']);
             exit;
@@ -131,9 +133,11 @@ class AuthController
                 'refresh' => $refreshToken
             ],
             'customer' => [
+                'customerId'=> $customer['customer_id'],
                 'first_name' => $customer['first_name'],
                 'last_name' => $customer['last_name'],
-                'email' => $customer['email']
+                'email' => $customer['email'],
+                'role' => 'customer',
             ]
         ]);
     }

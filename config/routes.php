@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../src/Controllers/CustomerController.php';
 require_once __DIR__ . '/../src/Controllers/LoanController.php';
+require_once __DIR__ . '/../src/Controllers/LoanApplicationController.php';
 require_once __DIR__ . '/../src/Controllers/LoanProductController.php';
 require_once __DIR__ . '/../src/Controllers/AuthController.php';
 require_once __DIR__ . '/../src/Controllers/PaymentScheduleController.php';
@@ -65,6 +66,12 @@ switch (true) {
     case $requestUri === '/api/loans/products' && $requestMethod === 'GET':
         $controller = new LoanProductController();
         $controller->getAllLoanProducts();
+        break;
+
+    case $requestUri === '/api/loans/apply' && $requestMethod === 'POST':
+        AuthMiddleware::check('customer');
+        $controller = new LoanApplicationController();
+        $controller-> createLoanApplication();
         break;
 
     default:
