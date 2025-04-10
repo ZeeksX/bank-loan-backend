@@ -77,6 +77,13 @@ switch (true) {
         $controller->createLoanApplication();
         break;
 
+    // Get all loans for a specific customer
+    case preg_match('#^/api/customers/(\d+)/loans$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']); // Allow customer to see their own loans
+        $controller = new LoanController();
+        $controller->getCustomerLoans($matches[1]);
+        break;
+
     // Get all loan applications for a specific customer
     // /api/loans/customer/{id}
     case preg_match('#^/api/loans/customer/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':

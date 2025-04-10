@@ -2,14 +2,17 @@
 // File: src/Controllers/LoanApplicationController.php
 
 require_once __DIR__ . '/../Services/LoanApplicationService.php';
+require_once __DIR__ . '/../Services/LoanService.php'; 
 
 class LoanApplicationController
 {
     protected $loanApplicationService;
+    protected $loanService;
 
     public function __construct()
     {
         $this->loanApplicationService = new LoanApplicationService();
+        $this->loanService = new LoanService();
     }
 
     // POST /api/loans/apply
@@ -47,7 +50,7 @@ class LoanApplicationController
     public function updateLoanApplication($applicationId)
     {
         try {
-            AuthMiddleware::check(['admin', 'loan_officer', 'manager']); // Ensure only authorized roles can update
+            AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
 
             $data = json_decode(file_get_contents("php://input"), true);
 
@@ -56,11 +59,32 @@ class LoanApplicationController
             }
 
             // Assuming you have a way to get the current logged-in employee's ID
-            $loggedInEmployeeId = AuthMiddleware::getAuthenticatedUserId(); // Implement this in your AuthMiddleware
+            $loggedInEmployeeId = AuthMiddleware::getAuthenticatedUserId();
 
             $updated = $this->loanApplicationService->updateLoanApplication($applicationId, $data, $loggedInEmployeeId);
 
             if ($updated) {
+                // If the status is approved, create a loan record
+                if ($data['status'] === 'approved') {
+                    $applicationData = $this->loanApplicationService->getLoanApplicationById($applicationId);
+                    if ($applicationData) {
+                        $loanData = [
+                            'application_id' => $applicationId,
+                            'customer_id' => $applicationData['customer_id'],
+                            'product_id' => $applicationData['product_id'],
+                            'principal_amount' => $applicationData['requested_amount'],
+                            'interest_rate' => 0.05, // Replace with actual interest rate logic
+                            'term' => $applicationData['requested_term'],
+                            'start_date' => date('Y-m-d'), // Replace with actual start date logic
+                            'end_date' => date('Y-m-d', strtotime('+1 year')), // Replace with actual end date logic
+                            'approved_by' => $loggedInEmployeeId,
+                        ];
+                        $loanId = $this->loanService->createLoan($loanData);
+                        // Optionally, you can update the application status to indicate the loan is created
+                        // $this->loanApplicationService->updateLoanApplication($applicationId, ['status' => 'loan_created']);
+                    }
+                }
+
                 http_response_code(200);
                 echo json_encode([
                     'message' => 'Loan application updated successfully',

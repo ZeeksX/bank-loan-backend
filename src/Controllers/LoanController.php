@@ -18,7 +18,12 @@ class LoanController
         $loans = $this->loanService->getAllLoans();
         echo json_encode($loans);
     }
-
+    // GET /api/customers/{customerId}/loans
+    public function getCustomerLoans($customerId)
+    {
+        $loans = $this->loanService->getLoansByCustomerId($customerId);
+        echo json_encode($loans);
+    }
     // GET /api/loans/{id}
     public function show($id)
     {
@@ -30,7 +35,7 @@ class LoanController
     public function store()
     {
         $data = json_decode(file_get_contents("php://input"), true);
-        
+
         // You might want to add field validation here before creating the loan
 
         $loanId = $this->loanService->createLoan($data);
@@ -44,9 +49,9 @@ class LoanController
     public function update($id)
     {
         $data = json_decode(file_get_contents("php://input"), true);
-        
+
         $updated = $this->loanService->updateLoan($id, $data);
-        
+
         if ($updated) {
             echo json_encode(['message' => 'Loan updated successfully']);
         } else {
@@ -59,7 +64,7 @@ class LoanController
     public function destroy($id)
     {
         $deleted = $this->loanService->deleteLoan($id);
-        
+
         if ($deleted) {
             echo json_encode(['message' => 'Loan deleted successfully']);
         } else {
