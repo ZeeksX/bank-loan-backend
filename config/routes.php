@@ -92,6 +92,14 @@ switch (true) {
         $controller->getLoanApplicationStatus($matches[1]);
         break;
 
+    // Get all loan applications
+    // /api/loans/applications
+    case $requestUri === '/api/loans/applications' && $requestMethod === 'GET':
+        AuthMiddleware::check('admin');
+        $controller = new LoanApplicationController();
+        $controller->getAllLoanApplicationS();
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['message' => 'Route not found']);

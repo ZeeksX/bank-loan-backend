@@ -12,9 +12,14 @@ class LoanApplicationService
 
     public function getAllLoanApplications()
     {
-        $stmt = $this->pdo->query("SELECT * FROM loan_applications");
-        return $stmt->fetchAll();
+        // Adjusting the query to join with customers so we can fetch customer names.
+        $sql = "SELECT la.*, c.first_name, c.last_name 
+            FROM loan_applications la 
+            JOIN customers c ON la.customer_id = c.customer_id";
+        $stmt = $this->pdo->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
 
     public function getLoanApplicationById($id)
     {

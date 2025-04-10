@@ -46,33 +46,28 @@ try {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )",
 
+        // Departments table
+        "CREATE TABLE IF NOT EXISTS departments (
+            department_id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )",
+
         // Bank Employees table
         "CREATE TABLE IF NOT EXISTS bank_employees (
             employee_id INT AUTO_INCREMENT PRIMARY KEY,
             first_name VARCHAR(50) NOT NULL,
             last_name VARCHAR(50) NOT NULL,
             email VARCHAR(100) NOT NULL UNIQUE,
+            password VARCHAR(255) NOT NULL,
             phone VARCHAR(20) NOT NULL,
-            department VARCHAR(50) NOT NULL,
-            position VARCHAR(50) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
-
-        // User Accounts table
-        "CREATE TABLE IF NOT EXISTS user_accounts (
-            user_id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(50) NOT NULL UNIQUE,
-            password_hash VARCHAR(255) NOT NULL,
-            role ENUM('customer', 'loan_officer', 'admin', 'manager') NOT NULL,
-            customer_id INT NULL,
-            employee_id INT NULL,
-            is_active BOOLEAN DEFAULT TRUE,
             last_login TIMESTAMP NULL,
+            department_id INT NOT NULL,
+            role ENUM('customer', 'loan_officer', 'admin', 'manager') NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL,
-            FOREIGN KEY (employee_id) REFERENCES bank_employees(employee_id) ON DELETE SET NULL
+            FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE CASCADE
         )",
 
         // Loan Products table
