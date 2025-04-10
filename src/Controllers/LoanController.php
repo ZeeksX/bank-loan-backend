@@ -1,69 +1,70 @@
 <?php
 // File: src/Controllers/LoanController.php
 
+require_once __DIR__ . '/../Services/LoanService.php';
+
 class LoanController
 {
-    protected $pdo;
+    protected $loanService;
 
     public function __construct()
     {
-        $this->pdo = require __DIR__ . '/../../config/database.php';
+        $this->loanService = new LoanService();
     }
 
     // GET /api/loans
     public function index()
     {
-        $stmt = $this->pdo->query("SELECT * FROM loans");
-        echo json_encode($stmt->fetchAll());
+        $loans = $this->loanService->getAllLoans();
+        echo json_encode($loans);
     }
 
     // GET /api/loans/{id}
     public function show($id)
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM loans WHERE loan_id = :id");
-        $stmt->execute(['id' => $id]);
-        echo json_encode($stmt->fetch());
+        $loan = $this->loanService->getLoanById($id);
+        echo json_encode($loan);
     }
 
     // POST /api/loans
     public function store()
     {
         $data = json_decode(file_get_contents("php://input"), true);
-        $stmt = $this->pdo->prepare("INSERT INTO loans (application_id, customer_id, product_id, principal_amount, interest_rate, term, start_date, end_date, status, approved_by, approval_date)
-            VALUES (:application_id, :customer_id, :product_id, :principal_amount, :interest_rate, :term, :start_date, :end_date, :status, :approved_by, :approval_date)");
-        $stmt->execute([
-            'application_id' => $data['application_id'],
-            'customer_id' => $data['customer_id'],
-            'product_id' => $data['product_id'],
-            'principal_amount' => $data['principal_amount'],
-            'interest_rate' => $data['interest_rate'],
-            'term' => $data['term'],
-            'start_date' => $data['start_date'],
-            'end_date' => $data['end_date'],
-            'status' => 'active',
-            'approved_by' => $data['approved_by'],
-            'approval_date' => date('Y-m-d H:i:s')
+        
+        // You might want to add field validation here before creating the loan
+
+        $loanId = $this->loanService->createLoan($data);
+        echo json_encode([
+            'message' => 'Loan created successfully',
+            'loan_id' => $loanId
         ]);
-        echo json_encode(['message' => 'Loan created successfully']);
     }
 
     // PUT/PATCH /api/loans/{id}
     public function update($id)
     {
         $data = json_decode(file_get_contents("php://input"), true);
-        $stmt = $this->pdo->prepare("UPDATE loans SET status = :status WHERE loan_id = :id");
-        $stmt->execute([
-            'status' => $data['status'],
-            'id' => $id
-        ]);
-        echo json_encode(['message' => 'Loan updated successfully']);
+        
+        $updated = $this->loanService->updateLoan($id, $data);
+        
+        if ($updated) {
+            echo json_encode(['message' => 'Loan updated successfully']);
+        } else {
+            http_response_code(400);
+            echo json_encode(['message' => 'Failed to update loan']);
+        }
     }
 
     // DELETE /api/loans/{id}
     public function destroy($id)
     {
-        $stmt = $this->pdo->prepare("DELETE FROM loans WHERE loan_id = :id");
-        $stmt->execute(['id' => $id]);
-        echo json_encode(['message' => 'Loan deleted successfully']);
+        $deleted = $this->loanService->deleteLoan($id);
+        
+        if ($deleted) {
+            echo json_encode(['message' => 'Loan deleted successfully']);
+        } else {
+            http_response_code(400);
+            echo json_encode(['message' => 'Failed to delete loan']);
+        }
     }
 }

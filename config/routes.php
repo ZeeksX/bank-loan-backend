@@ -51,7 +51,7 @@ switch (true) {
 
     // Get all customers
     case $requestUri === '/api/customers/all' && $requestMethod === 'GET':
-        AuthMiddleware::check(['admin']);
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new CustomerController();
         $controller->getAllCustomers();
         break;
@@ -59,7 +59,7 @@ switch (true) {
     //Get specific customer
     // /api/customers/{id}
     case preg_match('#^/api/customers/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check(['admin']);
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new CustomerController();
         $controller->show($matches[1]);
         break;
@@ -93,11 +93,18 @@ switch (true) {
         $controller->getLoanApplicationStatus($matches[1]);
         break;
 
-    // /api/loans/applications
+    // Get all loan applications
     case $requestUri === '/api/loans/applications' && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new LoanApplicationController();
-        $controller->getAllLoanApplications(); 
+        $controller->getAllLoanApplications();
+        break;
+
+    // Get all loans
+    case $requestUri === '/api/loans' && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanController();
+        $controller->index();
         break;
 
     case $requestUri === '/api/bank-employee' && $requestMethod === 'POST':

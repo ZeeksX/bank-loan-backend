@@ -26,7 +26,8 @@ class LoanService
     public function createLoan(array $data)
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO loans (application_id, customer_id, product_id, principal_amount, interest_rate, term, start_date, end_date, status, approved_by, approval_date)
+            "INSERT INTO loans 
+             (application_id, customer_id, product_id, principal_amount, interest_rate, term, start_date, end_date, status, approved_by, approval_date)
              VALUES (:application_id, :customer_id, :product_id, :principal_amount, :interest_rate, :term, :start_date, :end_date, :status, :approved_by, :approval_date)"
         );
         $stmt->execute([
