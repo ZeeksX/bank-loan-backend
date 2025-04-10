@@ -8,9 +8,12 @@ class AuthMiddleware
     public static function check(array $allowedRoles = [])
     {
         try {
-            // Get authorization header
-            $headers = getallheaders();
-            $authHeader = $headers['Authorization'] ?? '';
+            // Improved Header Retrieval
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+
+            // Log Headers for Debugging
+            error_log("All Server Headers: " . print_r($_SERVER, true));
+            error_log("Authorization Header: " . $authHeader);
 
             // Check if authorization header exists
             if (empty($authHeader)) {
@@ -23,11 +26,17 @@ class AuthMiddleware
             }
             $token = $matches[1];
 
+            // Log the Token
+            error_log("Extracted Token: " . $token);
+
             // Validate token
             $decoded = JWTHandler::validateToken($token);
             if (!$decoded) {
                 throw new Exception('Invalid or expired token', 401);
             }
+
+            // Log Decoded Token Payload
+            error_log("Decoded Token Payload: " . print_r($decoded, true));
 
             // Check if token has required claims
             if (!isset($decoded->sub) || !isset($decoded->role)) {
@@ -42,7 +51,7 @@ class AuthMiddleware
             return [
                 'user_id' => $decoded->sub,
                 'role' => $decoded->role,
-                'token' => $token // Return the validated token for potential further use
+                'token' => $token
             ];
 
         } catch (Exception $e) {

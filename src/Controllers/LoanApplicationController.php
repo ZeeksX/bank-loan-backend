@@ -17,8 +17,9 @@ class LoanApplicationController
         $this->loanApplicationService = new LoanApplicationService();
         $this->loanService = new LoanService();
         $this->loanProductService = new LoanProductService();
-        $this->$pdo = require __DIR__ . '/../../config/database.php';
+        $this->pdo = require __DIR__ . '/../../config/database.php';
     }
+
 
     // POST /api/loans/apply
     public function createLoanApplication(array $data)
@@ -31,7 +32,7 @@ class LoanApplicationController
             'customer_id' => $data['customer_id'],
             'product_id' => $data['product_id'],
             'requested_amount' => $data['requested_amount'],
-            'requested_term' => $data['requested_term'], // Store the term
+            'requested_term' => (int)$data['requested_term'],
             'purpose' => $data['purpose'],
             'status' => 'submitted',
             'application_reference' => $data['application_reference']
@@ -76,7 +77,7 @@ class LoanApplicationController
                             'end_date' => date('Y-m-d', strtotime('+' . $applicationData['requested_term'] . ' months')),
                             'approved_by' => $loggedInEmployeeId,
                         ];
-                        
+
                         $loanId = $this->loanService->createLoan($loanData);
                     }
                 }
@@ -174,7 +175,6 @@ class LoanApplicationController
                 'count' => count($response),
                 'timestamp' => date('c')
             ]);
-
         } catch (Exception $e) {
             error_log('Error in getAllLoanApplications: ' . $e->getMessage());
             http_response_code(500);
@@ -188,6 +188,7 @@ class LoanApplicationController
     }
 
     // GET /api/loans/customer/{customerId}// GET /api/loans/customer/{customerId}
+    // GET /api/loans/customer/{customerId}
     public function getCustomerLoanApplications(int $customerId): void
     {
         try {
@@ -231,9 +232,8 @@ class LoanApplicationController
                 'success' => true,
                 'data' => $response,
                 'count' => count($response),
-                'timestamp' => date('c')
+                'timestamp' => date('c'),
             ]);
-
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode(['error' => $e->getMessage()]);

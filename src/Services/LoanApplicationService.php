@@ -10,7 +10,8 @@ class LoanApplicationService
         $this->pdo = require __DIR__ . '/../../config/database.php';
     }
 
-    public function getPdo(){
+    public function getPdo()
+    {
         return $this->pdo;
     }
 
@@ -200,9 +201,9 @@ class LoanApplicationService
     {
         try {
             $sql = "SELECT la.*, c.first_name, c.last_name
-                    FROM loan_applications la
-                    JOIN customers c ON la.customer_id = c.customer_id
-                    WHERE la.customer_id = :customer_id";
+                FROM loan_applications la
+                JOIN customers c ON la.customer_id = c.customer_id
+                WHERE la.customer_id = :customer_id";
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute(['customer_id' => $customerId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
