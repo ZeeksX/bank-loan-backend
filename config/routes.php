@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../src/Controllers/CustomerController.php';
 require_once __DIR__ . '/../src/Controllers/LoanController.php';
+require_once __DIR__ . '/../src/Controllers/BankEmployeeController.php';
 require_once __DIR__ . '/../src/Controllers/LoanApplicationController.php';
 require_once __DIR__ . '/../src/Controllers/LoanProductController.php';
 require_once __DIR__ . '/../src/Controllers/AuthController.php';
@@ -92,13 +93,17 @@ switch (true) {
         $controller->getLoanApplicationStatus($matches[1]);
         break;
 
-    // Get all loan applications
     // /api/loans/applications
     case $requestUri === '/api/loans/applications' && $requestMethod === 'GET':
         AuthMiddleware::check('admin');
         $controller = new LoanApplicationController();
         $controller->getAllLoanApplicationS();
         break;
+
+        case $requestUri === '/api/bank-employee' && $requestMethod === 'POST':
+            $controller = new BankEmployeeController();
+            $controller->createEmployee();
+            break;
 
     default:
         http_response_code(404);

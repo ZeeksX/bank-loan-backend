@@ -93,7 +93,6 @@ class AuthController
         ]);
     }
 
-
     // POST /api/login
     public function login()
     {
@@ -105,11 +104,40 @@ class AuthController
             return;
         }
 
+        // Check if the user is a customer
         $stmt = $this->pdo->prepare("SELECT * FROM customers WHERE email = :email");
         $stmt->execute(['email' => $data['email']]);
         $customer = $stmt->fetch();
 
-        if (!$customer || !password_verify($data['password'], $customer['password'])) {
+        // Check if the user is a bank employee
+        $stmt = $this->pdo->prepare("SELECT * FROM bank_employees WHERE email = :email");
+        $stmt->execute(['email' => $data['email']]);
+        $employee = $stmt->fetch();
+
+        // Determine if the user is a customer or an employee
+        if ($customer) {
+            // Verify customer password
+            if (!password_verify($data['password'], $customer['password'])) {
+                http_response_code(401);
+                echo json_encode(['message' => 'Invalid credentials']);
+                return;
+            }
+
+            // Generate tokens for customer
+            $role = 'customer';
+            $userId = $customer['customer_id'];
+        } elseif ($employee) {
+            // Verify employee password
+            if (!password_verify($data['password'], $employee['password'])) {
+                http_response_code(401);
+                echo json_encode(['message' => 'Invalid credentials']);
+                return;
+            }
+
+            // Generate tokens for employee
+            $role = $employee['role']; // Get the role from the employee record
+            $userId = $employee['employee_id'];
+        } else {
             http_response_code(401);
             echo json_encode(['message' => 'Invalid credentials']);
             return;
@@ -118,21 +146,21 @@ class AuthController
         // Generate tokens with correct parameters:
         // Access token: valid for 1 hour, with "type" set to 'access'
         $accessToken = JWTHandler::generateToken(
-            $customer['customer_id'],
-            'customer',
+            $userId,
+            $role,
             3600,
             ['type' => 'access']
         );
 
         // Refresh token: valid for 7 days, with "type" set to 'refresh'
         $refreshToken = JWTHandler::generateToken(
-            $customer['customer_id'],
-            'customer',
+            $userId,
+            $role,
             86400 * 7,
             ['type' => 'refresh']
         );
 
-        $this->storeRefreshToken($customer['customer_id'], $refreshToken);
+        $this->storeRefreshToken($userId, $refreshToken);
 
         echo json_encode([
             'message' => 'Login successful',
@@ -140,12 +168,12 @@ class AuthController
                 'access' => $accessToken,
                 'refresh' => $refreshToken
             ],
-            'customer' => [
-                'customerId' => $customer['customer_id'],
-                'first_name' => $customer['first_name'],
-                'last_name' => $customer['last_name'],
-                'email' => $customer['email'],
-                'role' => 'customer',
+            'user' => [
+                'userId' => $userId,
+                'first_name' => $customer ? $customer['first_name'] : $employee['first_name'],
+                'last_name' => $customer ? $customer['last_name'] : $employee['last_name'],
+                'email' => $data['email'],
+                'role' => $role,
             ]
         ]);
     }
@@ -156,9 +184,9 @@ class AuthController
         $stmt->execute(['customer_id' => $customerId]);
 
         $stmt = $this->pdo->prepare("
-INSERT INTO refresh_tokens (customer_id, token, expires_at)
-VALUES (:customer_id, :token, DATE_ADD(NOW(), INTERVAL 7 DAY))
-");
+        INSERT INTO refresh_tokens (customer_id, token, expires_at)
+        VALUES (:customer_id, :token, DATE_ADD(NOW(), INTERVAL 7 DAY))
+        ");
         $stmt->execute([
             'customer_id' => $customerId,
             'token' => $refreshToken
@@ -182,11 +210,11 @@ VALUES (:customer_id, :token, DATE_ADD(NOW(), INTERVAL 7 DAY))
             }
 
             $stmt = $this->pdo->prepare("
-SELECT c.customer_id
-FROM refresh_tokens rt
-JOIN customers c ON rt.customer_id = c.customer_id
-WHERE rt.token = :token AND rt.expires_at > NOW()
-");
+            SELECT c.customer_id
+            FROM refresh_tokens rt
+            JOIN customers c ON rt.customer_id = c.customer_id
+            WHERE rt.token = :token AND rt.expires_at > NOW()
+            ");
             $stmt->execute(['token' => $data['refresh']]);
             $tokenData = $stmt->fetch();
 

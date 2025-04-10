@@ -25,18 +25,36 @@ class BankEmployeeService
 
     public function createEmployee(array $data)
     {
+        // Validate password strength (optional, but recommended)
+        if (!preg_match('/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/', $data['password'])) {
+            http_response_code(400);
+            echo json_encode(['message' => 'Password must contain at least 6 characters, one uppercase letter, one number, and one special character']);
+            exit;
+        }
+    
+        // Hash the password
+        $hashedPassword = password_hash($data['password'], PASSWORD_BCRYPT);
+    
         $stmt = $this->pdo->prepare(
-            "INSERT INTO bank_employees (first_name, last_name, email, phone, department, position)
-             VALUES (:first_name, :last_name, :email, :phone, :department, :position)"
+            "INSERT INTO bank_employees (
+                first_name, last_name, email, password,
+                phone, department_id, role
+            ) VALUES (
+                :first_name, :last_name, :email, :password,
+                :phone, :department_id, :role
+            )"
         );
+    
         $stmt->execute([
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
             'email' => $data['email'],
+            'password' => $hashedPassword, // Use the hashed password
             'phone' => $data['phone'],
-            'department' => $data['department'],
-            'position' => $data['position']
+            'department_id' => $data['department_id'],
+            'role' => $data['role']
         ]);
+    
         return $this->pdo->lastInsertId();
     }
 

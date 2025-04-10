@@ -1,66 +1,84 @@
 <?php
 // File: src/Controllers/BankEmployeeController.php
 
+require_once __DIR__ . '/../Services/BankEmployeeService.php';
+
 class BankEmployeeController
 {
-    protected $pdo;
+    protected $service;
 
     public function __construct()
     {
-        $this->pdo = require __DIR__ . '/../../config/database.php';
+        $this->service = new BankEmployeeService();
     }
 
     // GET /api/bank_employees
     public function index()
     {
-        $stmt = $this->pdo->query("SELECT * FROM bank_employees");
-        echo json_encode($stmt->fetchAll());
+        $employees = $this->service->getAllEmployees();
+        echo json_encode($employees);
     }
 
     // GET /api/bank_employees/{id}
     public function show($id)
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM bank_employees WHERE employee_id = :id");
-        $stmt->execute(['id' => $id]);
-        echo json_encode($stmt->fetch());
+        $employee = $this->service->getEmployeeById($id);
+        echo json_encode($employee);
     }
 
-    // POST /api/bank_employees
-    public function store()
-    {
-        $data = json_decode(file_get_contents("php://input"), true);
-        $stmt = $this->pdo->prepare("INSERT INTO bank_employees (first_name, last_name, email, phone, department, position)
-            VALUES (:first_name, :last_name, :email, :phone, :department, :position)");
-        $stmt->execute([
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'email' => $data['email'],
-            'phone' => $data['phone'],
-            'department' => $data['department'],
-            'position' => $data['position']
-        ]);
-        echo json_encode(['message' => 'Bank employee created successfully']);
-    }
+     // POST /api/bank-employees
+     public function createEmployee(): void
+     {
+         header('Content-Type: application/json');
+         
+         try {
+             $data = json_decode(file_get_contents("php://input"), true);
+ 
+             // Validate required fields
+             $requiredFields = [
+                 'first_name', 'last_name', 'email', 
+                 'phone', 'department_id', 'role', 'password'
+             ];
+             
+             foreach ($requiredFields as $field) {
+                 if (!isset($data[$field])) {
+                     throw new Exception("Missing required field: $field");
+                 }
+             }
+ 
+             // Hash password
+             $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+ 
+             $employeeId = $this->service->createEmployee($data);
+ 
+             http_response_code(201);
+             echo json_encode([
+                 'success' => true,
+                 'message' => 'Employee created successfully',
+                 'employee_id' => $employeeId
+             ]);
+ 
+         } catch (Exception $e) {
+             http_response_code(400);
+             echo json_encode([
+                 'success' => false,
+                 'error' => $e->getMessage()
+             ]);
+         }
+     }
 
     // PUT/PATCH /api/bank_employees/{id}
     public function update($id)
     {
         $data = json_decode(file_get_contents("php://input"), true);
-        $stmt = $this->pdo->prepare("UPDATE bank_employees SET phone = :phone, department = :department, position = :position WHERE employee_id = :id");
-        $stmt->execute([
-            'phone' => $data['phone'],
-            'department' => $data['department'],
-            'position' => $data['position'],
-            'id' => $id
-        ]);
+        $this->service->updateEmployee($id, $data);
         echo json_encode(['message' => 'Bank employee updated successfully']);
     }
 
     // DELETE /api/bank_employees/{id}
     public function destroy($id)
     {
-        $stmt = $this->pdo->prepare("DELETE FROM bank_employees WHERE employee_id = :id");
-        $stmt->execute(['id' => $id]);
+        $this->service->deleteEmployee($id);
         echo json_encode(['message' => 'Bank employee deleted successfully']);
     }
 }
