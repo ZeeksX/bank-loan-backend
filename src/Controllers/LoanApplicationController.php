@@ -22,8 +22,9 @@ class LoanApplicationController
 
 
     // POST /api/loans/apply
-    public function createLoanApplication(array $data)
+    public function createLoanApplication()
     {
+        $data = json_decode(file_get_contents("php://input"), true);
         $stmt = $this->pdo->prepare(
             "INSERT INTO loan_applications (customer_id, product_id, requested_amount, requested_term, purpose, status, application_reference)
             VALUES (:customer_id, :product_id, :requested_amount, :requested_term, :purpose, :status, :application_reference)"
