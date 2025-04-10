@@ -10,12 +10,16 @@ class LoanApplicationService
         $this->pdo = require __DIR__ . '/../../config/database.php';
     }
 
+    public function getPdo(){
+        return $this->pdo;
+    }
+
     public function getAllLoanApplications()
     {
         // Adjusting the query to join with customers so we can fetch customer names.
-        $sql = "SELECT la.*, c.first_name, c.last_name 
-            FROM loan_applications la 
-            JOIN customers c ON la.customer_id = c.customer_id";
+        $sql = "SELECT la.*, c.first_name, c.last_name
+                FROM loan_applications la
+                JOIN customers c ON la.customer_id = c.customer_id";
         $stmt = $this->pdo->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -45,15 +49,20 @@ class LoanApplicationService
         return $this->pdo->lastInsertId();
     }
 
-    public function updateLoanApplication($id, array $data)
+    public function updateLoanApplication($id, array $data, $reviewedBy = null)
     {
-        $stmt = $this->pdo->prepare(
-            "UPDATE loan_applications SET status = :status WHERE application_id = :id"
-        );
-        return $stmt->execute([
-            'status' => $data['status'],
-            'id' => $id
-        ]);
+        $sqlParts = ["status = :status"];
+        $params = ['status' => $data['status'], 'id' => $id];
+
+        if ($reviewedBy !== null) {
+            $sqlParts[] = "reviewed_by = :reviewed_by";
+            $params['reviewed_by'] = $reviewedBy;
+            $sqlParts[] = "review_date = NOW()";
+        }
+
+        $sql = "UPDATE loan_applications SET " . implode(', ', $sqlParts) . " WHERE application_id = :id";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 
     public function getCustomerLoans($customerId)
@@ -106,8 +115,8 @@ class LoanApplicationService
     {
         // First check if the application exists
         $stmt = $this->pdo->prepare("
-            SELECT 
-                la.application_id, 
+            SELECT
+                la.application_id,
                 la.application_reference,
                 la.status as application_status,
                 la.application_date,
@@ -179,5 +188,27 @@ class LoanApplicationService
     {
         $stmt = $this->pdo->prepare("DELETE FROM loan_applications WHERE application_id = :id");
         return $stmt->execute(['id' => $id]);
+    }
+
+    /**
+     * Gets all loan applications for a specific customer.
+     *
+     * @param int $customerId The ID of the customer.
+     * @return array An array of loan application data.
+     */
+    public function getLoanApplicationsByCustomerId(int $customerId): array
+    {
+        try {
+            $sql = "SELECT la.*, c.first_name, c.last_name
+                    FROM loan_applications la
+                    JOIN customers c ON la.customer_id = c.customer_id
+                    WHERE la.customer_id = :customer_id";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['customer_id' => $customerId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("DB Error in getLoanApplicationsByCustomerId: " . $e->getMessage());
+            return [];
+        }
     }
 }

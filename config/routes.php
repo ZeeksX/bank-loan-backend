@@ -31,7 +31,7 @@ switch (true) {
         echo json_encode(['message' => 'Welcome to the Loan Management System API']);
         break;
 
-    // Register a new user    
+    // Register a new user        
     case $requestUri === '/api/auth/register' && $requestMethod === 'POST':
         $controller = new AuthController();
         $controller->register();
@@ -77,12 +77,12 @@ switch (true) {
         $controller->createLoanApplication();
         break;
 
-    // Get all loans for a specific customer
+    // Get all loan applications for a specific customer
     // /api/loans/customer/{id}
     case preg_match('#^/api/loans/customer/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
         AuthMiddleware::check(['customer']);
         $controller = new LoanApplicationController();
-        $controller->getCustomerLoans($matches[1]);
+        $controller->getCustomerLoanApplications($matches[1]);
         break;
 
     // Get loan application status
@@ -98,6 +98,13 @@ switch (true) {
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new LoanApplicationController();
         $controller->getAllLoanApplications();
+        break;
+
+    // Get a specific loan application for a customer
+    case preg_match('#^/api/loans/applications/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['customer']);
+        $controller = new LoanApplicationController();
+        $controller->getLoanApplicationsById($matches[1]);
         break;
 
     // Change status of a loan application
