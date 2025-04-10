@@ -100,6 +100,13 @@ switch (true) {
         $controller->getAllLoanApplications();
         break;
 
+    // Change status of a loan application
+    case preg_match('#^/api/loans/applications/(\d+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanApplicationController();
+        $controller->updateLoanApplication($matches[1]);
+        break;
+
     // Get all loans
     case $requestUri === '/api/loans' && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);

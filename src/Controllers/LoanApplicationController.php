@@ -43,6 +43,34 @@ class LoanApplicationController
         }
     }
 
+    // PUT /api/loans/applications/{id}
+    public function updateLoanApplication($applicationId)
+    {
+        try {
+            $data = json_decode(file_get_contents("php://input"), true);
+
+            if (!$data || !isset($data['status'])) {
+                throw new Exception('Invalid or missing status in request data');
+            }
+
+            $updated = $this->loanApplicationService->updateLoanApplication($applicationId, $data);
+
+            if ($updated) {
+                http_response_code(200);
+                echo json_encode([
+                    'message' => 'Loan application updated successfully',
+                    'application_id' => $applicationId
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Loan application not found or no changes made']);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
     // GET /api/loans/customer/{id}
     public function getCustomerLoans($customerId)
     {
