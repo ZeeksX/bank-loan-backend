@@ -25,8 +25,9 @@ class LoanService
 
     public function getLoansByCustomerId($customerId)
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM loans WHERE customer_id = :customer_id");
-        $stmt->execute(['customer_id' => $customerId]);
+        $query = "SELECT * FROM loans WHERE customer_id = :id";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':id' => $customerId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 

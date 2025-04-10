@@ -199,51 +199,21 @@ class LoanApplicationController
         }
     }
 
-    // GET /api/loans/customer/{customerId}// GET /api/loans/customer/{customerId}
     // GET /api/loans/customer/{customerId}
     public function getCustomerLoanApplications(int $customerId): void
     {
         try {
             AuthMiddleware::check(['customer']);
-            $loanApplications = $this->loanApplicationService->getLoanApplicationsByCustomerId($customerId);
+
+            // Use the service method to fetch and format the loans
+            $loanApplications = $this->loanApplicationService->getCustomerLoans($customerId);
 
             header('Content-Type: application/json');
-
-            $response = array_map(function ($application) {
-                // Initialize variables to hold loan-related data
-                $dueDate = null;
-                $amountPaid = null;
-                $nextPayment = null;
-
-                // If the application has been approved (and thus has a loan_id), fetch loan details
-                if ($application['status'] === 'approved') {
-                    $loanDetails = $this->getLoanDetailsForApplication($application['application_id']);
-                    if ($loanDetails) {
-                        $dueDate = $loanDetails['due_date'];
-                        $amountPaid = $loanDetails['amount_paid'];
-                        $nextPayment = $loanDetails['next_payment'];
-                    }
-                }
-
-                return [
-                    'id' => $application['application_reference'] ?? null,
-                    'amount' => $application['requested_amount'] ?? null,
-                    'purpose' => htmlspecialchars($application['purpose'] ?? ''),
-                    'status' => htmlspecialchars($application['status'] ?? ''),
-                    'application_date' => isset($application['application_date'])
-                        ? date('Y-m-d', strtotime($application['application_date']))
-                        : null,
-                    'due_date' => $dueDate ?? "N/A",
-                    'amount_paid' => $amountPaid ?? "N/A",
-                    'next_payment' => $nextPayment ?? "N/A",
-                ];
-            }, $loanApplications);
-
             http_response_code(200);
             echo json_encode([
                 'success' => true,
-                'data' => $response,
-                'count' => count($response),
+                'data' => $loanApplications,
+                'count' => count($loanApplications),
                 'timestamp' => date('c'),
             ]);
         } catch (Exception $e) {
@@ -251,6 +221,7 @@ class LoanApplicationController
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
+
 
     // Helper function to fetch loan details for a specific application
     private function getLoanDetailsForApplication(int $applicationId): ?array

@@ -19,7 +19,7 @@ class LoanController
         echo json_encode($loans);
     }
     // GET /api/customers/{customerId}/loans
-    public function getCustomerLoans($customerId)
+    public function getCustomerLoans($customerId) 
     {
         $loans = $this->loanService->getLoansByCustomerId($customerId);
         echo json_encode($loans);
