@@ -49,11 +49,7 @@ class LoanApplicationController
         try {
             $loans = $this->loanApplicationService->getCustomerLoans($customerId);
 
-            if (empty($loans)) {
-                echo json_encode([]);
-                return;
-            }
-
+            header('Content-Type: application/json');
             echo json_encode($loans);
         } catch (Exception $e) {
             http_response_code(500);

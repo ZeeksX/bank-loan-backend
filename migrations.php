@@ -155,6 +155,40 @@ try {
             FOREIGN KEY (approved_by) REFERENCES bank_employees(employee_id)
         )",
 
+        // Customer Loans table
+        "CREATE OR REPLACE VIEW customer_loans AS
+            SELECT
+                la.application_reference AS id,
+                lp.product_name AS name,
+                CONCAT('₦', FORMAT(loans.principal_amount, 0)) AS amount,
+                CONCAT('₦', FORMAT(IFNULL(SUM(pt.amount_paid), 0), 0)) AS amountPaid,
+                DATE_FORMAT(MAX(ps.due_date), '%M %d, %Y') AS dueDate,
+                CONCAT('₦', FORMAT((
+                    SELECT ps2.total_amount
+                    FROM payment_schedules ps2
+                    WHERE ps2.loan_id = loans.loan_id AND ps2.status = 'pending'
+                    ORDER BY ps2.due_date ASC
+                    LIMIT 1
+                ), 0)) AS nextPayment,
+                ROUND(IFNULL(SUM(pt.amount_paid) / loans.principal_amount * 100, 0)) AS progress,
+                loans.status,
+                DATE_FORMAT(loans.start_date, '%M %d, %Y') AS date,
+                loans.customer_id
+            FROM loans
+            JOIN loan_products lp ON lp.product_id = loans.product_id
+            JOIN loan_applications la ON la.application_id = loans.application_id  
+            LEFT JOIN payment_schedules ps ON ps.loan_id = loans.loan_id
+            LEFT JOIN payment_transactions pt ON pt.loan_id = loans.loan_id AND pt.status = 'completed'
+            GROUP BY 
+                la.application_reference,  
+                lp.product_name,
+                loans.principal_amount,
+                loans.loan_id,
+                loans.status,
+                loans.start_date,
+                loans.customer_id; 
+        ",
+
         // Documents table
         "CREATE TABLE IF NOT EXISTS documents (
             document_id INT AUTO_INCREMENT PRIMARY KEY,

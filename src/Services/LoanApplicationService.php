@@ -54,32 +54,48 @@ class LoanApplicationService
 
     public function getCustomerLoans($customerId)
     {
-        $stmt = $this->pdo->prepare("
-            SELECT 
-                la.application_id,
-                la.requested_amount,
-                la.requested_term,
-                la.purpose,
-                la.application_reference,
-                la.status as application_status,
-                la.application_date,
-                lp.name as product_name,
-                l.loan_id,
-                l.principal_amount,
-                l.interest_rate,
-                l.term,
-                l.start_date,
-                l.end_date,
-                l.status as loan_status
-            FROM loan_applications la
-            LEFT JOIN loans l ON la.application_id = l.application_id
-            JOIN loan_products lp ON la.product_id = lp.product_id
-            WHERE la.customer_id = :customer_id
-            ORDER BY la.application_date DESC
-        ");
+        try {
+            $stmt = $this->pdo->prepare(" SELECT * FROM customer_loans WHERE customer_id = :customer_id");
+            $stmt->execute(['customer_id' => $customerId]);
+            $loans = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmt->execute(['customer_id' => $customerId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $statusMap = [
+                'paid' => 'completed',
+                'defaulted' => 'active',
+                'cancelled' => 'rejected'
+            ];
+
+            $formattedLoans = [];
+            foreach ($loans as $loan) {
+                $formattedLoans[] = [
+                    'id' => $loan['id'],
+                    'name' => $loan['name'],
+                    'amount' => $loan['amount'],
+                    'amountPaid' => $loan['amountPaid'],
+                    'dueDate' => $loan['status'] === 'paid' ? 'Completed' : $loan['dueDate'],
+                    'nextPayment' => $loan['nextPayment'] === '₦0' ? 'N/A' : $loan['nextPayment'],
+                    'progress' => (int) $loan['progress'],
+                    'status' => $statusMap[$loan['status']] ?? $loan['status'],
+                    'date' => $loan['date']
+                ];
+            }
+
+            return $formattedLoans;
+        } catch (PDOException $e) {
+            error_log("DB Error in getCustomerLoans: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    private function formatNaira($koboAmount)
+    {
+        // Divide by 100 to convert kobo to naira and format with no decimals.
+        return '₦' . number_format($koboAmount / 100, 0);
+    }
+
+    private function formatDate($dateString)
+    {
+        return $dateString ? date("F j, Y", strtotime($dateString)) : "N/A";
     }
 
     public function getLoanApplicationStatus($applicationId)
