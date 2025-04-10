@@ -97,85 +97,127 @@ class AuthController
     public function login()
     {
         $data = json_decode(file_get_contents("php://input"), true);
+        error_log("Login request data: " . print_r($data, true));
 
         if (!isset($data['email'], $data['password'])) {
+            error_log("Missing email or password in request");
             http_response_code(400);
             echo json_encode(['message' => 'Email and password required']);
             return;
         }
 
-        // Check if the user is a customer
-        $stmt = $this->pdo->prepare("SELECT * FROM customers WHERE email = :email");
-        $stmt->execute(['email' => $data['email']]);
-        $customer = $stmt->fetch();
+        try {
+            // Check customer
+            $stmt = $this->pdo->prepare("SELECT customer_id, first_name, last_name, email, password FROM customers WHERE email = :email");
+            $stmt->execute(['email' => $data['email']]);
+            $customer = $stmt->fetch();
 
-        // Check if the user is a bank employee
-        $stmt = $this->pdo->prepare("SELECT * FROM bank_employees WHERE email = :email");
-        $stmt->execute(['email' => $data['email']]);
-        $employee = $stmt->fetch();
+            if ($customer) {
+                error_log("Found customer: " . print_r($customer, true));
 
-        // Determine if the user is a customer or an employee
-        if ($customer) {
-            // Verify customer password
-            if (!password_verify($data['password'], $customer['password'])) {
-                http_response_code(401);
-                echo json_encode(['message' => 'Invalid credentials']);
+                if (!password_verify($data['password'], $customer['password'])) {
+                    error_log("Password verification failed for customer");
+                    http_response_code(401);
+                    echo json_encode(['message' => 'Invalid credentials']);
+                    return;
+                }
+
+                error_log("Customer authentication successful");
+
+                // Generate tokens
+                $accessToken = JWTHandler::generateToken(
+                    $customer['customer_id'],
+                    'customer',
+                    3600,
+                    ['type' => 'access']
+                );
+
+                $refreshToken = JWTHandler::generateToken(
+                    $customer['customer_id'],
+                    'customer',
+                    86400 * 7,
+                    ['type' => 'refresh']
+                );
+
+                $this->storeRefreshToken($customer['customer_id'], $refreshToken);
+
+                echo json_encode([
+                    'message' => 'Login successful',
+                    'tokens' => [
+                        'access' => $accessToken,
+                        'refresh' => $refreshToken
+                    ],
+                    'user' => [
+                        'userId' => $customer['customer_id'],
+                        'first_name' => $customer['first_name'],
+                        'last_name' => $customer['last_name'],
+                        'email' => $customer['email'],
+                        'role' => 'customer',
+                    ]
+                ]);
                 return;
             }
 
-            // Generate tokens for customer
-            $role = 'customer';
-            $userId = $customer['customer_id'];
-        } elseif ($employee) {
-            // Verify employee password
-            if (!password_verify($data['password'], $employee['password'])) {
-                http_response_code(401);
-                echo json_encode(['message' => 'Invalid credentials']);
+            // Check employee
+            $stmt = $this->pdo->prepare("SELECT employee_id, first_name, last_name, email, password, role FROM bank_employees WHERE email = :email");
+            $stmt->execute(['email' => $data['email']]);
+            $employee = $stmt->fetch();
+
+            if ($employee) {
+                error_log("Found employee: " . print_r($employee, true));
+
+                if (!password_verify($data['password'], $employee['password'])) {
+                    error_log("Password verification failed for employee");
+                    http_response_code(401);
+                    echo json_encode(['message' => 'invalid credentials']);
+                    return;
+                }
+
+                error_log("Employee authentication successful");
+
+                // Generate tokens
+                $accessToken = JWTHandler::generateToken(
+                    $employee['employee_id'],
+                    $employee['role'],
+                    3600,
+                    ['type' => 'access']
+                );
+
+                $refreshToken = JWTHandler::generateToken(
+                    $employee['employee_id'],
+                    $employee['role'],
+                    86400 * 7,
+                    ['type' => 'refresh']
+                );
+
+                $this->storeRefreshToken($employee['employee_id'], $refreshToken);
+
+                echo json_encode([
+                    'message' => 'Login successful',
+                    'tokens' => [
+                        'access' => $accessToken,
+                        'refresh' => $refreshToken
+                    ],
+                    'user' => [
+                        'userId' => $employee['employee_id'],
+                        'first_name' => $employee['first_name'],
+                        'last_name' => $employee['last_name'],
+                        'email' => $employee['email'],
+                        'role' => $employee['role'],
+                    ]
+                ]);
                 return;
             }
 
-            // Generate tokens for employee
-            $role = $employee['role']; // Get the role from the employee record
-            $userId = $employee['employee_id'];
-        } else {
+            error_log("No user found with email: " . $data['email']);
             http_response_code(401);
             echo json_encode(['message' => 'Invalid credentials']);
-            return;
+
+        } catch (PDOException $e) {
+            error_log("Database error during login: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['message' => 'Internal server error']);
         }
-
-        // Generate tokens with correct parameters:
-        // Access token: valid for 1 hour, with "type" set to 'access'
-        $accessToken = JWTHandler::generateToken(
-            $userId,
-            $role,
-            3600,
-            ['type' => 'access']
-        );
-
-        // Refresh token: valid for 7 days, with "type" set to 'refresh'
-        $refreshToken = JWTHandler::generateToken(
-            $userId,
-            $role,
-            86400 * 7,
-            ['type' => 'refresh']
-        );
-
-        $this->storeRefreshToken($userId, $refreshToken);
-
-        echo json_encode([
-            'message' => 'Login successful',
-            'tokens' => [
-                'access' => $accessToken,
-                'refresh' => $refreshToken
-            ],
-            'user' => [
-                'userId' => $userId,
-                'first_name' => $customer ? $customer['first_name'] : $employee['first_name'],
-                'last_name' => $customer ? $customer['last_name'] : $employee['last_name'],
-                'email' => $data['email'],
-                'role' => $role,
-            ]
-        ]);
     }
 
     private function storeRefreshToken($customerId, $refreshToken)
