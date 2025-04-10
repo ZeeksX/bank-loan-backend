@@ -20,7 +20,6 @@ class LoanApplicationService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-
     public function getLoanApplicationById($id)
     {
         $stmt = $this->pdo->prepare("SELECT * FROM loan_applications WHERE application_id = :id");

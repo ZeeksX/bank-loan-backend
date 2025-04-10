@@ -5,7 +5,7 @@ require_once __DIR__ . '/../Helpers/JWTHandler.php';
 
 class AuthMiddleware
 {
-    public static function check($requiredRole = null)
+    public static function check(array $allowedRoles = [])
     {
         try {
             // Get authorization header
@@ -35,20 +35,22 @@ class AuthMiddleware
             }
 
             // Check role permission if required
-            if ($requiredRole && ($decoded->role !== $requiredRole)) {
+            if (!empty($allowedRoles) && !in_array($decoded->role, $allowedRoles)) {
                 throw new Exception('Insufficient permissions', 403);
             }
 
             return [
                 'user_id' => $decoded->sub,
-                'role' => $decoded->role
+                'role' => $decoded->role,
+                'token' => $token // Return the validated token for potential further use
             ];
 
         } catch (Exception $e) {
             http_response_code($e->getCode() ?: 401);
             echo json_encode([
                 'message' => $e->getMessage(),
-                'error' => true
+                'error' => true,
+                'code' => $e->getCode() ?: 401
             ]);
             exit;
         }
@@ -57,14 +59,32 @@ class AuthMiddleware
     // Helper method to get authenticated user ID
     public static function getAuthenticatedUserId()
     {
-        $auth = self::check();
-        return $auth['user_id'] ?? null;
+        try {
+            $auth = self::check();
+            return $auth['user_id'] ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
     }
 
     // Helper method to get authenticated user role
     public static function getAuthenticatedUserRole()
     {
-        $auth = self::check();
-        return $auth['role'] ?? null;
+        try {
+            $auth = self::check();
+            return $auth['role'] ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    // New method to get full authenticated user data
+    public static function getAuthenticatedUser()
+    {
+        try {
+            return self::check();
+        } catch (Exception $e) {
+            return null;
+        }
     }
 }

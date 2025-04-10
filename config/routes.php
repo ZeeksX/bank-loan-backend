@@ -51,7 +51,7 @@ switch (true) {
 
     // Get all customers
     case $requestUri === '/api/customers/all' && $requestMethod === 'GET':
-        AuthMiddleware::check('admin');
+        AuthMiddleware::check(['admin']);
         $controller = new CustomerController();
         $controller->getAllCustomers();
         break;
@@ -59,7 +59,7 @@ switch (true) {
     //Get specific customer
     // /api/customers/{id}
     case preg_match('#^/api/customers/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check('admin');
+        AuthMiddleware::check(['admin']);
         $controller = new CustomerController();
         $controller->show($matches[1]);
         break;
@@ -72,7 +72,7 @@ switch (true) {
 
     // Apply for a loan
     case $requestUri === '/api/loans/apply' && $requestMethod === 'POST':
-        AuthMiddleware::check('customer');
+        AuthMiddleware::check(['customer']);
         $controller = new LoanApplicationController();
         $controller->createLoanApplication();
         break;
@@ -80,7 +80,7 @@ switch (true) {
     // Get all loans for a specific customer
     // /api/loans/customer/{id}
     case preg_match('#^/api/loans/customer/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check('customer');
+        AuthMiddleware::check(['customer']);
         $controller = new LoanApplicationController();
         $controller->getCustomerLoans($matches[1]);
         break;
@@ -88,22 +88,22 @@ switch (true) {
     // Get loan application status
     // /api/loans/application/{id}/status
     case preg_match('#^/api/loans/application/(\d+)/status$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check('customer');
+        AuthMiddleware::check(['customer']);
         $controller = new LoanApplicationController();
         $controller->getLoanApplicationStatus($matches[1]);
         break;
 
     // /api/loans/applications
     case $requestUri === '/api/loans/applications' && $requestMethod === 'GET':
-        AuthMiddleware::check('admin');
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new LoanApplicationController();
-        $controller->getAllLoanApplicationS();
+        $controller->getAllLoanApplications(); 
         break;
 
-        case $requestUri === '/api/bank-employee' && $requestMethod === 'POST':
-            $controller = new BankEmployeeController();
-            $controller->createEmployee();
-            break;
+    case $requestUri === '/api/bank-employee' && $requestMethod === 'POST':
+        $controller = new BankEmployeeController();
+        $controller->createEmployee();
+        break;
 
     default:
         http_response_code(404);
