@@ -2,48 +2,41 @@
 // File: src/Controllers/LoanApplicationController.php
 
 require_once __DIR__ . '/../Services/LoanApplicationService.php';
-require_once __DIR__ . '/../Services/LoanService.php'; 
+require_once __DIR__ . '/../Services/LoanService.php';
+require_once __DIR__ . '/../Services/LoanProductService.php';
 
 class LoanApplicationController
 {
     protected $loanApplicationService;
     protected $loanService;
+    protected $loanProductService;
+    protected $pdo;
 
     public function __construct()
     {
         $this->loanApplicationService = new LoanApplicationService();
         $this->loanService = new LoanService();
+        $this->loanProductService = new LoanProductService();
+        $this->$pdo = require __DIR__ . '/../../config/database.php';
     }
 
     // POST /api/loans/apply
-    public function createLoanApplication()
+    public function createLoanApplication(array $data)
     {
-        try {
-            $data = json_decode(file_get_contents("php://input"), true);
-
-            if (!$data) {
-                throw new Exception('Invalid input data');
-            }
-
-            // Validate required fields
-            $requiredFields = ['customer_id', 'product_id', 'requested_amount', 'requested_term', 'purpose', 'application_reference'];
-            foreach ($requiredFields as $field) {
-                if (!isset($data[$field])) {
-                    throw new Exception("Missing required field: $field");
-                }
-            }
-
-            $applicationId = $this->loanApplicationService->createLoanApplication($data);
-
-            http_response_code(201);
-            echo json_encode([
-                'message' => 'Loan application submitted',
-                'application_id' => $applicationId
-            ]);
-        } catch (Exception $e) {
-            http_response_code(400);
-            echo json_encode(['error' => $e->getMessage()]);
-        }
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO loan_applications (customer_id, product_id, requested_amount, requested_term, purpose, status, application_reference)
+            VALUES (:customer_id, :product_id, :requested_amount, :requested_term, :purpose, :status, :application_reference)"
+        );
+        $stmt->execute([
+            'customer_id' => $data['customer_id'],
+            'product_id' => $data['product_id'],
+            'requested_amount' => $data['requested_amount'],
+            'requested_term' => $data['requested_term'], // Store the term
+            'purpose' => $data['purpose'],
+            'status' => 'submitted',
+            'application_reference' => $data['application_reference']
+        ]);
+        return $this->pdo->lastInsertId();
     }
 
     // PUT /api/loans/applications/{id}
@@ -64,27 +57,29 @@ class LoanApplicationController
             $updated = $this->loanApplicationService->updateLoanApplication($applicationId, $data, $loggedInEmployeeId);
 
             if ($updated) {
-                // If the status is approved, create a loan record
                 if ($data['status'] === 'approved') {
                     $applicationData = $this->loanApplicationService->getLoanApplicationById($applicationId);
                     if ($applicationData) {
+                        // Fetch the interest rate from loan_products
+                        $productData = $this->loanProductService->getLoanProductById($applicationData['product_id']);
+                        $interestRate = $productData ? $productData['interest_rate'] : 0.05; // Default if not found
+
                         $loanData = [
                             'application_id' => $applicationId,
                             'customer_id' => $applicationData['customer_id'],
                             'product_id' => $applicationData['product_id'],
                             'principal_amount' => $applicationData['requested_amount'],
-                            'interest_rate' => 0.05, // Replace with actual interest rate logic
-                            'term' => $applicationData['requested_term'],
-                            'start_date' => date('Y-m-d'), // Replace with actual start date logic
-                            'end_date' => date('Y-m-d', strtotime('+1 year')), // Replace with actual end date logic
+                            'interest_rate' => $interestRate, // Use fetched interest rate
+                            'term' => $applicationData['requested_term'], // Use stored term
+                            'start_date' => date('Y-m-d'),
+                            // Calculate end_date or leave it out if only term is needed
+                            'end_date' => date('Y-m-d', strtotime('+' . $applicationData['requested_term'] . ' months')),
                             'approved_by' => $loggedInEmployeeId,
                         ];
+                        
                         $loanId = $this->loanService->createLoan($loanData);
-                        // Optionally, you can update the application status to indicate the loan is created
-                        // $this->loanApplicationService->updateLoanApplication($applicationId, ['status' => 'loan_created']);
                     }
                 }
-
                 http_response_code(200);
                 echo json_encode([
                     'message' => 'Loan application updated successfully',

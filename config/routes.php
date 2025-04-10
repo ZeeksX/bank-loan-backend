@@ -1,12 +1,12 @@
 <?php
 // File: config/routes.php
 
-require_once __DIR__ . '/../src/Controllers/CustomerController.php';
-require_once __DIR__ . '/../src/Controllers/LoanController.php';
-require_once __DIR__ . '/../src/Controllers/BankEmployeeController.php';
-require_once __DIR__ . '/../src/Controllers/LoanApplicationController.php';
-require_once __DIR__ . '/../src/Controllers/LoanProductController.php';
 require_once __DIR__ . '/../src/Controllers/AuthController.php';
+require_once __DIR__ . '/../src/Controllers/BankEmployeeController.php';
+require_once __DIR__ . '/../src/Controllers/CustomerController.php';
+require_once __DIR__ . '/../src/Controllers/LoanApplicationController.php';
+require_once __DIR__ . '/../src/Controllers/LoanController.php';
+require_once __DIR__ . '/../src/Controllers/LoanProductController.php';
 require_once __DIR__ . '/../src/Controllers/PaymentScheduleController.php';
 require_once __DIR__ . '/../src/Middleware/AuthMiddleware.php';
 
@@ -26,111 +26,109 @@ $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
 switch (true) {
-    // Root route
+    // GET /
     case $requestUri === '/' && $requestMethod === 'GET':
         echo json_encode(['message' => 'Welcome to the Loan Management System API']);
         break;
 
-    // Register a new user        
-    case $requestUri === '/api/auth/register' && $requestMethod === 'POST':
-        $controller = new AuthController();
-        $controller->register();
-        break;
-
-    // Login a user
+    // POST /api/auth/login
     case $requestUri === '/api/auth/login' && $requestMethod === 'POST':
         $controller = new AuthController();
         $controller->login();
         break;
 
-    // Refresh the access token
+    // POST /api/refresh
     case $requestUri === '/api/refresh' && $requestMethod === 'POST':
         $controller = new AuthController();
         $controller->refreshToken();
         break;
 
-    // Get all customers
-    case $requestUri === '/api/customers/all' && $requestMethod === 'GET':
-        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
-        $controller = new CustomerController();
-        $controller->getAllCustomers();
+    // POST /api/auth/register
+    case $requestUri === '/api/auth/register' && $requestMethod === 'POST':
+        $controller = new AuthController();
+        $controller->register();
         break;
 
-    //Get specific customer
-    // /api/customers/{id}
+    // POST /api/bank-employee
+    case $requestUri === '/api/bank-employee' && $requestMethod === 'POST':
+        $controller = new BankEmployeeController();
+        $controller->createEmployee();
+        break;
+
+    // GET /api/customers/{id}/loans
+    case preg_match('#^/api/customers/(\d+)/loans$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
+        $controller = new LoanController();
+        $controller->getCustomerLoans($matches[1]);
+        break;
+
+    // GET /api/customers/{id}
     case preg_match('#^/api/customers/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new CustomerController();
         $controller->show($matches[1]);
         break;
 
-    // Get all loan products
-    case $requestUri === '/api/loans/products' && $requestMethod === 'GET':
-        $controller = new LoanProductController();
-        $controller->getAllLoanProducts();
-        break;
-
-    // Apply for a loan
-    case $requestUri === '/api/loans/apply' && $requestMethod === 'POST':
-        AuthMiddleware::check(['customer']);
-        $controller = new LoanApplicationController();
-        $controller->createLoanApplication();
-        break;
-
-    // Get all loans for a specific customer
-    case preg_match('#^/api/customers/(\d+)/loans$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']); // Allow customer to see their own loans
-        $controller = new LoanController();
-        $controller->getCustomerLoans($matches[1]);
-        break;
-
-    // Get all loan applications for a specific customer
-    // /api/loans/customer/{id}
-    case preg_match('#^/api/loans/customer/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check(['customer']);
-        $controller = new LoanApplicationController();
-        $controller->getCustomerLoanApplications($matches[1]);
-        break;
-
-    // Get loan application status
-    // /api/loans/application/{id}/status
-    case preg_match('#^/api/loans/application/(\d+)/status$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check(['customer']);
-        $controller = new LoanApplicationController();
-        $controller->getLoanApplicationStatus($matches[1]);
-        break;
-
-    // Get all loan applications
-    case $requestUri === '/api/loans/applications' && $requestMethod === 'GET':
+    // GET /api/customers/all
+    case $requestUri === '/api/customers/all' && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
-        $controller = new LoanApplicationController();
-        $controller->getAllLoanApplications();
+        $controller = new CustomerController();
+        $controller->getAllCustomers();
         break;
 
-    // Get a specific loan application for a customer
-    case preg_match('#^/api/loans/applications/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check(['customer']);
-        $controller = new LoanApplicationController();
-        $controller->getLoanApplicationsById($matches[1]);
-        break;
-
-    // Change status of a loan application
-    case preg_match('#^/api/loans/applications/(\d+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
-        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
-        $controller = new LoanApplicationController();
-        $controller->updateLoanApplication($matches[1]);
-        break;
-
-    // Get all loans
+    // GET /api/loans
     case $requestUri === '/api/loans' && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new LoanController();
         $controller->index();
         break;
 
-    case $requestUri === '/api/bank-employee' && $requestMethod === 'POST':
-        $controller = new BankEmployeeController();
-        $controller->createEmployee();
+    // POST /api/loans/apply
+    case $requestUri === '/api/loans/apply' && $requestMethod === 'POST':
+        AuthMiddleware::check(['customer']);
+        $controller = new LoanApplicationController();
+        $controller->createLoanApplication($data);
+        break;
+
+    // GET /api/loans/application/{id}/status
+    case preg_match('#^/api/loans/application/(\d+)/status$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['customer']);
+        $controller = new LoanApplicationController();
+        $controller->getLoanApplicationStatus($matches[1]);
+        break;
+
+    // GET /api/loans/applications
+    case $requestUri === '/api/loans/applications' && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanApplicationController();
+        $controller->getAllLoanApplications();
+        break;
+
+    // GET /api/loans/applications/{id}
+    case preg_match('#^/api/loans/applications/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['customer']);
+        $controller = new LoanApplicationController();
+        $controller->getLoanApplicationsById($matches[1]);
+        break;
+
+    // PUT /api/loans/applications/{id}
+    case preg_match('#^/api/loans/applications/(\d+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanApplicationController();
+        $controller->updateLoanApplication($matches[1]);
+        break;
+
+    // GET /api/loans/customer/{id}
+    case preg_match('#^/api/loans/customer/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['customer']);
+        $controller = new LoanApplicationController();
+        $controller->getCustomerLoanApplications($matches[1]);
+        break;
+
+    // GET /api/loans/products
+    case $requestUri === '/api/loans/products' && $requestMethod === 'GET':
+        $controller = new LoanProductController();
+        $controller->getAllLoanProducts();
         break;
 
     default:

@@ -14,10 +14,11 @@ class LoanProductService
         return $stmt->fetchAll();
     }
 
-    public function getProductById($id) {
+    public function getLoanProductById($id)
+    {
         $stmt = $this->pdo->prepare("SELECT * FROM loan_products WHERE product_id = :id");
         $stmt->execute(['id' => $id]);
-        return $stmt->fetch();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     public function createProduct(array $data) {
