@@ -24,21 +24,32 @@ class LoanApplicationController
     // POST /api/loans/apply
     public function createLoanApplication()
     {
-        $data = json_decode(file_get_contents("php://input"), true);
-        $stmt = $this->pdo->prepare(
-            "INSERT INTO loan_applications (customer_id, product_id, requested_amount, requested_term, purpose, status, application_reference)
-            VALUES (:customer_id, :product_id, :requested_amount, :requested_term, :purpose, :status, :application_reference)"
-        );
-        $stmt->execute([
-            'customer_id' => $data['customer_id'],
-            'product_id' => $data['product_id'],
-            'requested_amount' => $data['requested_amount'],
-            'requested_term' => (int)$data['requested_term'],
-            'purpose' => $data['purpose'],
-            'status' => 'submitted',
-            'application_reference' => $data['application_reference']
-        ]);
-        return $this->pdo->lastInsertId();
+        try {
+            $data = json_decode(file_get_contents("php://input"), true);
+
+            if (!$data) {
+                throw new Exception('Invalid input data');
+            }
+
+            // Validate required fields
+            $requiredFields = ['customer_id', 'product_id', 'requested_amount', 'requested_term', 'purpose', 'application_reference'];
+            foreach ($requiredFields as $field) {
+                if (!isset($data[$field])) {
+                    throw new Exception("Missing required field: $field");
+                }
+            }
+
+            $applicationId = $this->loanApplicationService->createLoanApplication($data);
+
+            http_response_code(201);
+            echo json_encode([
+                'message' => 'Loan application submitted',
+                'application_id' => $applicationId
+            ]);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
     }
 
     // PUT /api/loans/applications/{id}
