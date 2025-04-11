@@ -155,34 +155,40 @@ try {
             SELECT
                 la.application_reference AS id,
                 lp.product_name AS name,
-                CONCAT('₦', FORMAT(loans.principal_amount, 0)) AS amount,
+                CONCAT('₦', FORMAT(l.principal_amount, 0)) AS amount,
                 CONCAT('₦', FORMAT(IFNULL(SUM(pt.amount_paid), 0), 0)) AS amountPaid,
-                DATE_FORMAT(MAX(ps.due_date), '%M %d, %Y') AS dueDate,
+                DATE_FORMAT(
+                    CASE
+                        WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
+                        ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
+                    END,
+                    '%M %d, %Y'
+                ) AS dueDate,
                 CONCAT('₦', FORMAT((
                     SELECT ps2.total_amount
                     FROM payment_schedules ps2
-                    WHERE ps2.loan_id = loans.loan_id AND ps2.status = 'pending'
+                    WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
                     ORDER BY ps2.due_date ASC
                     LIMIT 1
                 ), 0)) AS nextPayment,
-                ROUND(IFNULL(SUM(pt.amount_paid) / loans.principal_amount * 100, 0)) AS progress,
-                loans.status,
-                DATE_FORMAT(loans.start_date, '%M %d, %Y') AS date,
-                loans.customer_id
-            FROM loans
-            JOIN loan_products lp ON lp.product_id = loans.product_id
-            JOIN loan_applications la ON la.application_id = loans.application_id  
-            LEFT JOIN payment_schedules ps ON ps.loan_id = loans.loan_id
-            LEFT JOIN payment_transactions pt ON pt.loan_id = loans.loan_id AND pt.status = 'completed'
-            GROUP BY 
-                la.application_reference,  
+                ROUND(IFNULL(SUM(pt.amount_paid) / l.principal_amount * 100, 0)) AS progress,
+                l.status,
+                DATE_FORMAT(l.start_date, '%M %d, %Y') AS date,
+                l.customer_id
+            FROM loans l
+            JOIN loan_products lp ON lp.product_id = l.product_id
+            JOIN loan_applications la ON la.application_id = l.application_id
+            LEFT JOIN payment_schedules ps ON ps.loan_id = l.loan_id
+            LEFT JOIN payment_transactions pt ON pt.loan_id = l.loan_id AND pt.status = 'completed'
+            GROUP BY
+                la.application_reference,
                 lp.product_name,
-                loans.principal_amount,
-                loans.loan_id,
-                loans.status,
-                loans.start_date,
-                loans.customer_id; 
-        ",
+                l.principal_amount,
+                l.loan_id,
+                l.status,
+                l.start_date,
+                l.term,
+                l.customer_id;",
 
         // Documents table
         "CREATE TABLE IF NOT EXISTS documents (

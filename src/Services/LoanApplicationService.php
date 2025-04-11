@@ -90,7 +90,7 @@ class LoanApplicationService
                     'nextPayment' => $loan['nextPayment'] === '₦0' ? 'N/A' : $loan['nextPayment'],
                     'progress' => (int) $loan['progress'],
                     'status' => $statusMap[$loan['status']] ?? $loan['status'],
-                    'date' => $loan['date']
+                    'start_date' => $loan['date']
                 ];
             }
 
