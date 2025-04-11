@@ -31,20 +31,26 @@ class LoanApplicationController
                 throw new Exception('Invalid input data');
             }
 
-            // Validate required fields
-            $requiredFields = ['customer_id', 'product_id', 'requested_amount', 'requested_term', 'purpose', 'application_reference'];
+            $requiredFields = [
+                'customer_id',
+                'product_id',
+                'requested_amount',
+                'requested_term',
+                'purpose'
+            ];
             foreach ($requiredFields as $field) {
                 if (!isset($data[$field])) {
                     throw new Exception("Missing required field: $field");
                 }
             }
 
-            $applicationId = $this->loanApplicationService->createLoanApplication($data);
+            [$application_id, $application_reference] = $this->loanApplicationService->createLoanApplication($data);
 
             http_response_code(201);
             echo json_encode([
                 'message' => 'Loan application submitted',
-                'application_id' => $applicationId
+                'application_id' => $application_id,
+                'application_reference' => $application_reference
             ]);
         } catch (Exception $e) {
             http_response_code(400);

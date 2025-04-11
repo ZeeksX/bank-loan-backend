@@ -34,9 +34,15 @@ class LoanApplicationService
 
     public function createLoanApplication(array $data)
     {
+        // Generate a random 8-digit code in the format LL-NNNN
+        $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $randomLetters = $letters[rand(0, strlen($letters) - 1)] . $letters[rand(0, strlen($letters) - 1)];
+        $randomNumber = sprintf('%04d', rand(0, 9999));
+        $applicationReference = $randomLetters . '-' . $randomNumber;
+
         $stmt = $this->pdo->prepare(
             "INSERT INTO loan_applications (customer_id, product_id, requested_amount, requested_term, purpose, status, application_reference)
-            VALUES (:customer_id, :product_id, :requested_amount, :requested_term, :purpose, :status, :application_reference)"
+        VALUES (:customer_id, :product_id, :requested_amount, :requested_term, :purpose, :status, :application_reference)"
         );
         $stmt->execute([
             'customer_id' => $data['customer_id'],
@@ -45,9 +51,10 @@ class LoanApplicationService
             'requested_term' => $data['requested_term'],
             'purpose' => $data['purpose'],
             'status' => 'submitted',
-            'application_reference' => $data['application_reference']
+            'application_reference' => $applicationReference
         ]);
-        return $this->pdo->lastInsertId();
+
+        return [$this->pdo->lastInsertId(), $applicationReference];
     }
 
     public function updateLoanApplication($id, array $data, $reviewedBy = null)
