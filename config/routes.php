@@ -92,7 +92,7 @@ switch (true) {
 
     // POST /api/loans/apply
     case $requestUri === '/api/loans/apply' && $requestMethod === 'POST':
-        AuthMiddleware::check(['customer']);
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
         $controller = new LoanApplicationController();
         $controller->createLoanApplication();
         break;

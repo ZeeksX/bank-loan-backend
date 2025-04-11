@@ -152,56 +152,60 @@ try {
 
         // Customer Loans table
         "CREATE OR REPLACE VIEW customer_loans AS
-            SELECT
-                la.application_reference AS id,
-                lp.product_name AS name,
-                CONCAT('₦', FORMAT(l.principal_amount, 0)) AS amount,
-                CONCAT('₦', FORMAT(IFNULL(SUM(pt.amount_paid), 0), 0)) AS amountPaid,
-                DATE_FORMAT(
-                    CASE
-                        WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
-                        ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
-                    END,
-                    '%M %d, %Y'
-                ) AS dueDate,
-                CONCAT('₦', FORMAT(
-                    CASE
-                        WHEN (
-                            SELECT ps2.total_amount
-                            FROM payment_schedules ps2
-                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
-                            ORDER BY ps2.due_date ASC
-                            LIMIT 1
-                        ) IS NOT NULL THEN (
-                            SELECT ps2.total_amount
-                            FROM payment_schedules ps2
-                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
-                            ORDER BY ps2.due_date ASC
-                            LIMIT 1
-                        )
-                        ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
-                    END,
-                    0
-                )) AS nextPayment,
-                ROUND(IFNULL(SUM(pt.amount_paid) / l.principal_amount * 100, 0)) AS progress,
-                l.status,
-                DATE_FORMAT(l.start_date, '%M %d, %Y') AS date,
-                l.customer_id
-            FROM loans l
-            JOIN loan_products lp ON lp.product_id = l.product_id
-            JOIN loan_applications la ON la.application_id = l.application_id
-            LEFT JOIN payment_schedules ps ON ps.loan_id = l.loan_id
-            LEFT JOIN payment_transactions pt ON pt.loan_id = l.loan_id AND pt.status = 'completed'
-            GROUP BY
-                la.application_reference,
-                lp.product_name,
-                l.principal_amount,
-                l.interest_rate,
-                l.term,
-                l.loan_id,
-                l.status,
-                l.start_date,
-                l.customer_id;",
+        SELECT
+            la.application_reference AS id,
+            lp.product_name AS name,
+            CONCAT('₦', FORMAT(l.principal_amount, 0)) AS amount,
+            CONCAT('₦', FORMAT(IFNULL(SUM(pt.amount_paid), 0), 0)) AS amountPaid,
+            DATE_FORMAT(
+                CASE
+                    WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
+                    ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
+                END,
+                '%M %d, %Y'
+            ) AS dueDate,
+            CONCAT('₦', FORMAT(
+                CASE
+                    WHEN (
+                        SELECT ps2.total_amount
+                        FROM payment_schedules ps2
+                        WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                        ORDER BY ps2.due_date ASC
+                        LIMIT 1
+                    ) IS NOT NULL THEN (
+                        SELECT ps2.total_amount
+                        FROM payment_schedules ps2
+                        WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                        ORDER BY ps2.due_date ASC
+                        LIMIT 1
+                    )
+                    ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
+                END,
+                0
+            )) AS nextPayment,
+            ROUND(IFNULL(SUM(pt.amount_paid) / l.principal_amount * 100, 0)) AS progress,
+            CASE
+                WHEN la.status = 'under_review' THEN 'pending'
+                ELSE la.status
+            END AS status,
+            DATE_FORMAT(l.start_date, '%M %d, %Y') AS date,
+            l.customer_id
+        FROM loans l
+        JOIN loan_products lp ON lp.product_id = l.product_id
+        JOIN loan_applications la ON la.product_id = lp.product_id
+        LEFT JOIN payment_schedules ps ON ps.loan_id = l.loan_id
+        LEFT JOIN payment_transactions pt ON pt.loan_id = l.loan_id AND pt.status = 'completed'
+        GROUP BY
+            la.application_reference,
+            lp.product_name,
+            l.principal_amount,
+            l.interest_rate,
+            l.term,
+            l.loan_id,
+            la.status,
+            l.start_date,
+            l.customer_id
+        ",
 
         // Documents table
         "CREATE TABLE IF NOT EXISTS documents (
