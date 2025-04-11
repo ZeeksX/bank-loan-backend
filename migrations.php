@@ -164,13 +164,25 @@ try {
                     END,
                     '%M %d, %Y'
                 ) AS dueDate,
-                CONCAT('₦', FORMAT((
-                    SELECT ps2.total_amount
-                    FROM payment_schedules ps2
-                    WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
-                    ORDER BY ps2.due_date ASC
-                    LIMIT 1
-                ), 0)) AS nextPayment,
+                CONCAT('₦', FORMAT(
+                    CASE
+                        WHEN (
+                            SELECT ps2.total_amount
+                            FROM payment_schedules ps2
+                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                            ORDER BY ps2.due_date ASC
+                            LIMIT 1
+                        ) IS NOT NULL THEN (
+                            SELECT ps2.total_amount
+                            FROM payment_schedules ps2
+                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                            ORDER BY ps2.due_date ASC
+                            LIMIT 1
+                        )
+                        ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
+                    END,
+                    0
+                )) AS nextPayment,
                 ROUND(IFNULL(SUM(pt.amount_paid) / l.principal_amount * 100, 0)) AS progress,
                 l.status,
                 DATE_FORMAT(l.start_date, '%M %d, %Y') AS date,
@@ -184,10 +196,11 @@ try {
                 la.application_reference,
                 lp.product_name,
                 l.principal_amount,
+                l.interest_rate,
+                l.term,
                 l.loan_id,
                 l.status,
                 l.start_date,
-                l.term,
                 l.customer_id;",
 
         // Documents table
