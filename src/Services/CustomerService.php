@@ -1,10 +1,6 @@
 <?php
 // File: src/Services/CustomerService.php
 
-namespace App\Services;
-
-use App\Models\Database;
-use PDO;
 
 class CustomerService
 {
@@ -72,5 +68,49 @@ class CustomerService
     {
         $stmt = $this->pdo->prepare("DELETE FROM customers WHERE customer_id = :id");
         return $stmt->execute(['id' => $id]);
+    }
+
+    public function getCustomerLoanCount(int $customerId): array
+    {
+        $stmt = $this->pdo->prepare("SELECT status, COUNT(*) as count FROM loans WHERE customer_id = :customer_id GROUP BY status");
+        $stmt->execute(['customer_id' => $customerId]);
+        $loanCounts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // Fetch as key-value pairs
+
+        $totalLoans = array_sum($loanCounts);
+
+        return [
+            'total' => $totalLoans,
+            'pending' => $loanCounts['pending'] ?? 0,
+            'active' => $loanCounts['active'] ?? 0,
+            'paid' => $loanCounts['paid'] ?? 0,
+            'defaulted' => $loanCounts['defaulted'] ?? 0,
+            'cancelled' => $loanCounts['cancelled'] ?? 0,
+        ];
+    }
+
+    public function getAllCustomersLoanCounts(): array
+    {
+        $stmt = $this->pdo->query("
+            SELECT 
+                c.customer_id,
+                c.first_name,
+                c.last_name,
+                c.email,
+                c.created_at,
+                c.id_verification_status as status,
+                COUNT(l.loan_id) as total,
+                SUM(CASE WHEN l.status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN l.status = 'active' THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN l.status = 'paid' THEN 1 ELSE 0 END) as paid,
+                SUM(CASE WHEN l.status = 'defaulted' THEN 1 ELSE 0 END) as defaulted,
+                SUM(CASE WHEN l.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+            FROM customers c
+            LEFT JOIN loans l ON c.customer_id = l.customer_id
+            GROUP BY c.customer_id, c.first_name, c.last_name
+        ");
+
+        $customerLoanCounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $customerLoanCounts;
     }
 }

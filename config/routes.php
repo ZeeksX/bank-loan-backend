@@ -75,6 +75,13 @@ switch (true) {
         $controller = new CustomerController();
         $controller->getAllCustomers();
         break;
+    
+         // GET /api/customers/{id}/details-with-loans
+    case preg_match('#^/api/customers/(\d+)/details-with-loans$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']); // Adjust roles as needed
+        $controller = new CustomerController();
+        $controller->getCustomerDetailsWithLoanCounts($matches[1]);
+        break;
 
     // GET /api/loans
     case $requestUri === '/api/loans' && $requestMethod === 'GET':
