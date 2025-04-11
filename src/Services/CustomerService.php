@@ -72,7 +72,7 @@ class CustomerService
 
     public function getCustomerLoanCount(int $customerId): array
     {
-        $stmt = $this->pdo->prepare("SELECT status, COUNT(*) as count FROM loans WHERE customer_id = :customer_id GROUP BY status");
+        $stmt = $this->pdo->prepare("SELECT status, COUNT(*) as count FROM customer_loans WHERE customer_id = :customer_id GROUP BY status");
         $stmt->execute(['customer_id' => $customerId]);
         $loanCounts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // Fetch as key-value pairs
 
@@ -80,7 +80,8 @@ class CustomerService
 
         return [
             'total' => $totalLoans,
-            'pending' => $loanCounts['pending'] ?? 0,
+            'submitted' => $loanCounts['submitted'] ?? 0,
+            'pending' => $loanCounts['pending'] ?? $loanCounts['under_review'] ?? 0,
             'active' => $loanCounts['active'] ?? 0,
             'paid' => $loanCounts['paid'] ?? 0,
             'defaulted' => $loanCounts['defaulted'] ?? 0,
