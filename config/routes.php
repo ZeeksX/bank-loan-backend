@@ -7,6 +7,7 @@ require_once __DIR__ . '/../src/Controllers/CustomerController.php';
 require_once __DIR__ . '/../src/Controllers/LoanApplicationController.php';
 require_once __DIR__ . '/../src/Controllers/LoanController.php';
 require_once __DIR__ . '/../src/Controllers/LoanProductController.php';
+require_once __DIR__ . '/../src/Controllers/DocumentController.php';
 require_once __DIR__ . '/../src/Controllers/PaymentScheduleController.php';
 require_once __DIR__ . '/../src/Middleware/AuthMiddleware.php';
 
@@ -75,12 +76,26 @@ switch (true) {
         $controller = new CustomerController();
         $controller->getAllCustomers();
         break;
-    
-         // GET /api/customers/{id}/details-with-loans
+
+    // GET /api/customers/{id}/details-with-loans
     case preg_match('#^/api/customers/(\d+)/details-with-loans$#', $requestUri, $matches) && $requestMethod === 'GET':
-        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']); // Adjust roles as needed
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
         $controller = new CustomerController();
         $controller->getCustomerDetailsWithLoanCounts($matches[1]);
+        break;
+
+    // POST /api/documents/upload
+    case $requestUri === '/api/documents/upload' && $requestMethod === 'POST':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
+        $controller = new DocumentController();
+        $controller->store();
+        break;
+
+    // GET /api/documents/customer/{id}
+    case preg_match('#^/api/documents/customer/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['customer']);
+        $controller = new DocumentController();
+        $controller->getCustomerDocuments($matches[1]);
         break;
 
     // GET /api/loans
