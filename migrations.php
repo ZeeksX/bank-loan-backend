@@ -232,15 +232,11 @@ try {
             verified_by INT NULL,
             verification_date TIMESTAMP NULL,
             customer_id INT NULL,
-            application_id INT NULL,
-            loan_id INT NULL,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE,
-            FOREIGN KEY (application_id) REFERENCES loan_applications(application_id) ON DELETE CASCADE,
-            FOREIGN KEY (verified_by) REFERENCES bank_employees(employee_id) ON DELETE SET NULL,
-            FOREIGN KEY (loan_id) REFERENCES loans(loan_id) ON DELETE CASCADE
+            FOREIGN KEY (verified_by) REFERENCES bank_employees(employee_id) ON DELETE SET NULL
         )",
 
         // Payment Schedules table

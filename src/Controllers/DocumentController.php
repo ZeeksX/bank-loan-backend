@@ -12,114 +12,132 @@ class DocumentController
         $this->documentService = new DocumentService();
     }
 
-    // GET /api/documents
-    public function index()
-    {
-        $documents = $this->documentService->getAllDocuments();
-        echo json_encode($documents);
-    }
-
     // GET /api/documents/customer/{customerId}
     public function getCustomerDocuments($customerId)
     {
-        $documents = $this->documentService->getDocumentsByCustomerId($customerId);
-        $formattedDocuments = $this->formatCustomerDocuments($documents);
-        echo json_encode($formattedDocuments);
+        header('Content-Type: application/json');
+
+        try {
+            if (!is_numeric($customerId)) {
+                throw new Exception("Invalid customer ID");
+            }
+
+            $documents = $this->documentService->getDocumentsByCustomerId($customerId);
+            $formattedDocuments = $this->formatCustomerDocuments($documents);
+
+            echo json_encode([
+                'success' => true,
+                'data' => $formattedDocuments
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     private function formatCustomerDocuments(array $documents): array
     {
-        $formatted = [
+        // Define default document types
+        $defaultTypes = [
             'id_verification' => [
-                'id' => null,
-                'type' => 'id_verification',
                 'title' => 'ID Verification',
                 'description' => 'Government-issued photo ID',
-                'status' => 'required',
-                'uploadedAt' => 'N/A',
             ],
             'proof_of_income' => [
-                'id' => null,
-                'type' => 'proof_of_income',
                 'title' => 'Proof of Income',
                 'description' => 'Recent pay stubs or tax returns',
-                'status' => 'required',
-                'uploadedAt' => 'N/A',
             ],
             'bank_statements' => [
-                'id' => null,
-                'type' => 'bank_statements',
                 'title' => 'Bank Statements',
                 'description' => 'Last 3 months of statements',
-                'status' => 'required',
-                'uploadedAt' => 'N/A',
             ],
             'employment_verification' => [
-                'id' => null,
-                'type' => 'employment_verification',
                 'title' => 'Employment Verification',
                 'description' => 'Letter from employer or contract',
-                'status' => 'required',
-                'uploadedAt' => 'N/A',
-            ],
+            ]
         ];
 
+        $result = [];
+
+        // Initialize all document types with default status
+        foreach ($defaultTypes as $type => $details) {
+            $result[$type] = [
+                'id' => null,
+                'type' => $type,
+                'title' => $details['title'],
+                'description' => $details['description'],
+                'status' => 'required',
+                'uploadedAt' => null,
+                'file_name' => null,
+                'file_url' => null
+            ];
+        }
+
+        // Update with actual documents
         foreach ($documents as $doc) {
             $type = $doc['document_type'];
-            if (isset($formatted[$type])) {
-                $formatted[$type]['id'] = $doc['document_id'];
-                $formatted[$type]['status'] = $doc['verification_status'];
-                $formatted[$type]['file_name'] = $doc['file_name'] ?? null;
-                $formatted[$type]['file_size'] = $doc['file_size'] ?? null;
-                $formatted[$type]['mime_type'] = $doc['mime_type'] ?? null;
-                $formatted[$type]['uploadedAt'] = $doc['created_at'] ?? 'N/A';
+            if (array_key_exists($type, $result)) {
+                $result[$type] = [
+                    'id' => $doc['document_id'],
+                    'type' => $type,
+                    'title' => $defaultTypes[$type]['title'] ?? ucfirst(str_replace('_', ' ', $type)),
+                    'description' => $defaultTypes[$type]['description'] ?? '',
+                    'status' => $doc['verification_status'] ?? 'pending',
+                    'uploadedAt' => $doc['created_at'],
+                    'file_name' => $doc['file_name'],
+                    'file_url' => $doc['file_path']
+                ];
             }
         }
 
-        return array_values($formatted); 
+        return array_values($result);
     }
 
     // POST /api/documents/upload
     public function store()
     {
-        $data = $_POST;
-        $requiredFields = ['document_type', 'customer_id'];
+        header('Content-Type: application/json');
 
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field]) || empty($data[$field])) {
-                http_response_code(400);
-                echo json_encode(['error' => "Missing required field: $field"]);
-                return;
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                throw new Exception("Invalid request method");
             }
-        }
 
-        if (!isset($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
+            $data = $_POST;
+            $requiredFields = ['document_type', 'customer_id'];
+
+            foreach ($requiredFields as $field) {
+                if (empty($data[$field])) {
+                    throw new Exception("Missing required field: $field");
+                }
+            }
+
+            if (!isset($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception("No file uploaded or upload error");
+            }
+
+            $result = $this->documentService->handleDocumentUpload(
+                $data['customer_id'],
+                $data['document_type'],
+                $_FILES['document']
+            );
+
+            http_response_code(201);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Document uploaded successfully',
+                'data' => $result
+            ]);
+        } catch (Exception $e) {
             http_response_code(400);
-            echo json_encode(['error' => 'No file uploaded or upload error']);
-            return;
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
         }
-
-        $fileData = file_get_contents($_FILES['document']['tmp_name']);
-        $fileName = $_FILES['document']['name'];
-        $fileSize = $_FILES['document']['size'];
-        $mimeType = $_FILES['document']['type'];
-
-        $documentData = [
-            'document_type' => $data['document_type'],
-            'file_path' => $fileData,
-            'file_name' => $fileName,
-            'file_size' => $fileSize,
-            'mime_type' => $mimeType,
-            'verification_status' => 'pending',
-            'customer_id' => $data['customer_id'],
-            'application_id' => $data['application_id'] ?? null,
-            'loan_id' => $data['loan_id'] ?? null,
-            'notes' => $data['notes'] ?? null,
-        ];
-
-        $documentId = $this->documentService->createDocument($documentData);
-        http_response_code(201);
-        echo json_encode(['message' => 'Document uploaded successfully', 'document_id' => $documentId, 'document_type' => $data['document_type']]);
     }
 
     // PUT/PATCH /api/documents/{id}
