@@ -47,4 +47,22 @@ class PaymentTransactionController
         $this->service->deleteTransaction($id);
         echo json_encode(['message' => 'Payment transaction deleted successfully']);
     }
+
+    // GET /api/customers/{customerId}/payments
+    public function getAllPaymentTransactionsByCustomerId($customerId)
+    {
+        try {
+            $transactions = $this->service->getTransactionsByCustomerId($customerId);
+            if ($transactions === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Database error']);
+                return;
+            }
+            echo json_encode($transactions);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
 }

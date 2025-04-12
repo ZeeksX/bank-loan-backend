@@ -23,6 +23,13 @@ class PaymentTransactionService
         return $stmt->fetch();
     }
 
+    public function getTransactionsByCustomerId($id)
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM payment_transactions WHERE customer_id = :id");
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function createTransaction(array $data)
     {
         $stmt = $this->pdo->prepare(

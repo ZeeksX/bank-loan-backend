@@ -258,6 +258,7 @@ try {
         // Payment Transactions table
         "CREATE TABLE IF NOT EXISTS payment_transactions (
             transaction_id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_id INT NOT NULL,        
             loan_id INT NOT NULL,
             schedule_id INT NOT NULL,
             amount_paid DECIMAL(12, 2) NOT NULL,
@@ -271,6 +272,7 @@ try {
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE, 
             FOREIGN KEY (loan_id) REFERENCES loans(loan_id) ON DELETE CASCADE,
             FOREIGN KEY (schedule_id) REFERENCES payment_schedules(schedule_id) ON DELETE CASCADE,
             FOREIGN KEY (processed_by) REFERENCES bank_employees(employee_id) ON DELETE SET NULL

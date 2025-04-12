@@ -9,6 +9,7 @@ require_once __DIR__ . '/../src/Controllers/LoanController.php';
 require_once __DIR__ . '/../src/Controllers/LoanProductController.php';
 require_once __DIR__ . '/../src/Controllers/DocumentController.php';
 require_once __DIR__ . '/../src/Controllers/PaymentScheduleController.php';
+require_once __DIR__ . '/../src/Controllers/PaymentTransactionController.php';
 require_once __DIR__ . '/../src/Middleware/AuthMiddleware.php';
 
 // Set CORS headers
@@ -156,8 +157,8 @@ switch (true) {
     // GET /api/customers/${customerId}/payments
     case preg_match('#^/api/customers/(\d+)/payments$#', $requestUri, $matches) && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
-        $controller = new LoanApplicationController();
-        $controller->getLoanApplicationsById($matches[1]);
+        $controller = new PaymentTransactionController();
+        $controller->getAllPaymentTransactionsByCustomerId($matches[1]);
         break;
 
     default:
