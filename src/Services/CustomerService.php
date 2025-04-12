@@ -54,12 +54,26 @@ class CustomerService
     public function updateCustomer($id, array $data)
     {
         $stmt = $this->pdo->prepare(
-            "UPDATE customers SET first_name = :first_name, last_name = :last_name, email = :email WHERE customer_id = :id"
+            "UPDATE customers 
+             SET first_name = :first_name, 
+                 last_name = :last_name, 
+                 email = :email,
+                 income = :income,
+                 account_number = :bankAccount,
+                 bank = :bank,
+                 employer = :employer,
+                 occupation = :occupation
+             WHERE customer_id = :id"
         );
         return $stmt->execute([
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
             'email' => $data['email'],
+            'income' => $data['income'],
+            'bankAccount' => $data['bankAccount'],
+            'bank' => $data['bank'],
+            'employer' => $data['employer'],
+            'occupation' => $data['occupation'],
             'id' => $id
         ]);
     }

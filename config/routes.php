@@ -71,6 +71,13 @@ switch (true) {
         $controller->show($matches[1]);
         break;
 
+    // PUT /api/customers/{id}
+    case preg_match('#^/api/customers/(\d+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
+        $controller = new CustomerController();
+        $controller->update($matches[1]);
+        break;
+
     // GET /api/customers/all
     case $requestUri === '/api/customers/all' && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
