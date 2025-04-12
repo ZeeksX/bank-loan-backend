@@ -2,7 +2,7 @@
 *.log
 *.cache
 *.env
-
+/uploads/
 
 # Composer
 /vendor
