@@ -153,6 +153,13 @@ switch (true) {
         $controller->getAllLoanProducts();
         break;
 
+    // GET /api/customers/${customerId}/payments
+    case preg_match('#^/api/customers/(\d+)/payments$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
+        $controller = new LoanApplicationController();
+        $controller->getLoanApplicationsById($matches[1]);
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['message' => 'Route not found']);
