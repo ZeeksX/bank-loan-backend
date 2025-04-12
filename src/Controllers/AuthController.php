@@ -281,4 +281,54 @@ class AuthController
             echo json_encode(['message' => $e->getMessage()]);
         }
     }
+
+    // GET /api/me
+    public function me()
+    {
+        $headers = getallheaders();
+        if (!isset($headers['Authorization'])) {
+            http_response_code(401);
+            echo json_encode(['message' => 'Authorization header missing']);
+            return;
+        }
+
+        $token = str_replace('Bearer ', '', $headers['Authorization']);
+
+        try {
+            $decoded = JWTHandler::validateToken($token);
+            if (!$decoded || $decoded->type !== 'access') {
+                throw new Exception('Invalid token type');
+            }
+
+            $userId = $decoded->sub;
+            $role = $decoded->role;
+
+            if ($role === 'customer') {
+                $stmt = $this->pdo->prepare("SELECT * FROM customers WHERE customer_id = :user_id");
+            } else {
+                // Join bank_employees with departments to return department name
+                $stmt = $this->pdo->prepare("
+                SELECT be.*, d.name as department_name 
+                FROM bank_employees be 
+                JOIN departments d ON be.department_id = d.department_id 
+                WHERE be.employee_id = :user_id
+            ");
+            }
+
+            $stmt->execute(['user_id' => $userId]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                http_response_code(404);
+                echo json_encode(['message' => 'User not found']);
+                return;
+            }
+
+            unset($user['password']);
+            echo json_encode(['user' => $user]);
+        } catch (Exception $e) {
+            http_response_code(401);
+            echo json_encode(['message' => $e->getMessage()]);
+        }
+    }
 }

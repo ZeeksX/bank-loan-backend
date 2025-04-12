@@ -57,6 +57,12 @@ switch (true) {
         $controller->createEmployee();
         break;
 
+    // POST /api/customers
+    case $requestUri === '/api/customers' && $requestMethod === 'POST':
+        $controller = new CustomerController();
+        $controller->store();
+        break;
+
     // GET /api/customers/{id}/loans
     case preg_match('#^/api/customers/(\d+)/loans$#', $requestUri, $matches) && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
@@ -168,6 +174,27 @@ switch (true) {
         $controller->getAllLoanProducts();
         break;
 
+    // POST /api/loans/products
+    case $requestUri === '/api/loans/products' && $requestMethod === 'POST':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanProductController();
+        $controller->store();
+        break;
+
+    // DELETE /api/loans/products/{id}
+    case preg_match('#^/api/loans/products/(\d+)$#', $requestUri, $matches) && $requestMethod === 'DELETE':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanProductController();
+        $controller->destroy($matches[1]);
+        break;
+
+    // PUT /api/loans/products/{id}
+    case preg_match('#^/api/loans/products/(\d+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanProductController();
+        $controller->update($matches[1]);
+        break;
+
     // GET /api/customers/${customerId}/payments
     case preg_match('#^/api/customers/(\d+)/payments$#', $requestUri, $matches) && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
@@ -179,6 +206,20 @@ switch (true) {
     case $requestUri === '/api/payment-transaction' && $requestMethod === 'POST':
         $controller = new PaymentTransactionController();
         $controller->store();
+        break;
+
+    // GET /api/payment_transactions
+    case $requestUri === '/api/payment_transactions' && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
+        $controller = new PaymentTransactionController();
+        $controller->index();
+        break;
+
+    // GET /api/me
+    case $requestUri === '/api/me' && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
+        $controller = new AuthController();
+        $controller->me();
         break;
 
     default:

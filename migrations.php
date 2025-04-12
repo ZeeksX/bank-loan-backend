@@ -68,7 +68,7 @@ try {
             phone VARCHAR(20) NOT NULL,
             last_login TIMESTAMP NULL,
             department_id INT NOT NULL,
-            role ENUM('customer', 'loan_officer', 'admin', 'manager') NOT NULL,
+            role ENUM('loan_officer', 'admin', 'manager') NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE CASCADE
