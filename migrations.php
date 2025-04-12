@@ -38,7 +38,7 @@ try {
             phone VARCHAR(20) NOT NULL,
             email VARCHAR(100) NOT NULL UNIQUE,
             ssn VARCHAR(20) NOT NULL UNIQUE,
-            income DECIMAL(12, 2),
+            income DECIMAL(30, 2),
             employment_status VARCHAR(50),
             occupation VARCHAR(50),
             employer VARCHAR(50),
