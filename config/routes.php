@@ -106,6 +106,13 @@ switch (true) {
         $controller->index();
         break;
 
+    // GET /api/loans/{id}
+    case preg_match('#^/api/loans/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
+        $controller = new LoanController();
+        $controller->show($matches[1]);
+        break;
+
     // POST /api/loans/apply
     case $requestUri === '/api/loans/apply' && $requestMethod === 'POST':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
@@ -159,6 +166,12 @@ switch (true) {
         AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
         $controller = new PaymentTransactionController();
         $controller->getAllPaymentTransactionsByCustomerId($matches[1]);
+        break;
+
+    // POST /api/payment-transaction
+    case $requestUri === '/api/payment-transaction' && $requestMethod === 'POST':
+        $controller = new PaymentTransactionController();
+        $controller->store();
         break;
 
     default:

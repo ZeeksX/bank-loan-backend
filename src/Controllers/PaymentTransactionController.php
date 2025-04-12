@@ -25,7 +25,7 @@ class PaymentTransactionController
         echo json_encode($this->service->getTransactionById($id));
     }
 
-    // POST /api/payment_transactions
+    // POST /api/payment-transaction
     public function store()
     {
         $data = json_decode(file_get_contents("php://input"), true);
