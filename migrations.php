@@ -160,11 +160,11 @@ try {
                 la.application_reference AS id,
                 lp.product_name AS name,
                 CONCAT('₦', FORMAT(COALESCE(l.principal_amount, la.requested_amount), 0)) AS amount,
-                -- Calculate amountPaid correctly from payment_transactions
+                -- Calculate amountPaid from payment_transactions
                 CONCAT('₦', FORMAT(IFNULL((
-                    SELECT SUM(pt2.amount_paid)
-                    FROM payment_transactions pt2
-                    WHERE pt2.loan_id = l.loan_id AND pt2.status = 'completed'
+                    SELECT SUM(pt.amount_paid)
+                    FROM payment_transactions pt
+                    WHERE pt.loan_id = l.loan_id AND pt.status = 'completed'
                 ), 0), 0)) AS amountPaid,
                 DATE_FORMAT(
                     CASE
@@ -194,13 +194,13 @@ try {
                         ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
                     END, 0)
                 ) AS nextPayment,
-                -- Calculate progress based on amountPaid
+                -- Calculate progress based on amount paid from payment_transactions
                 ROUND(
                     IFNULL(
                         (
-                            SELECT SUM(pt3.amount_paid)
-                            FROM payment_transactions pt3
-                            WHERE pt3.loan_id = l.loan_id AND pt3.status = 'completed'
+                            SELECT SUM(pt.amount_paid)
+                            FROM payment_transactions pt
+                            WHERE pt.loan_id = l.loan_id AND pt.status = 'completed'
                         ) / COALESCE(l.principal_amount, la.requested_amount) * 100
                     , 0)
                 ) AS progress,
@@ -216,7 +216,6 @@ try {
             LEFT JOIN loans l ON la.application_id = l.application_id
             LEFT JOIN loan_products lp ON la.product_id = lp.product_id
             LEFT JOIN payment_schedules ps ON l.loan_id = ps.loan_id
-            LEFT JOIN payment_transactions pt ON l.loan_id = pt.loan_id
             GROUP BY
                 la.application_reference,
                 lp.product_name,
