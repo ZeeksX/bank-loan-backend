@@ -97,55 +97,56 @@ class LoanApplicationService
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT
-                    la.application_reference AS id,
-                    lp.product_name AS name,
-                    COALESCE(l.principal_amount, la.requested_amount) AS amount,
-                    SUM(pt.amount_paid) AS amountPaid,
-                    CASE
-                        WHEN l.loan_id IS NOT NULL THEN
-                            CASE
-                                WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
-                                ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
-                            END
-                        ELSE NULL
-                    END AS dueDate,
-                    CASE
-                        WHEN l.loan_id IS NOT NULL THEN
-                            (SELECT total_amount FROM payment_schedules WHERE loan_id = l.loan_id AND status = 'pending' ORDER BY due_date ASC LIMIT 1)
-                        ELSE 0
-                    END AS nextPayment,
-                    ROUND(IFNULL(SUM(pt.amount_paid) / COALESCE(l.principal_amount, la.requested_amount) * 100, 0)) AS progress,
-                    CASE
-                        WHEN l.loan_id IS NULL THEN la.status
-                        WHEN la.status = 'under_review' THEN 'pending'
-                        WHEN l.status = 'paid' THEN 'completed'
-                        WHEN l.status = 'defaulted' THEN 'active' -- Assuming 'defaulted' means still active for display
-                        WHEN la.status = 'rejected' OR la.status = 'cancelled' THEN 'rejected'
-                        ELSE l.status
-                    END AS status,
-                    COALESCE(l.start_date, la.application_date) AS start_date,
-                    GROUP_CONCAT(
+               SELECT
+                la.application_reference AS id,
+                lp.product_name AS name,
+                l.loan_id AS loan_id,  -- Added loan_id column here
+                COALESCE(l.principal_amount, la.requested_amount) AS amount,
+                SUM(pt.amount_paid) AS amountPaid,
+                CASE
+                    WHEN l.loan_id IS NOT NULL THEN
                         CASE
-                            WHEN pt.transaction_id IS NOT NULL THEN
-                                JSON_OBJECT(
-                                    'paymentDate', DATE_FORMAT(pt.payment_date, '%Y-%m-%d'),
-                                    'amountPaid', FORMAT(pt.amount_paid / 100, 2),
-                                    'status', pt.status
-                                )
-                            ELSE NULL
+                            WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
+                            ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
                         END
-                        SEPARATOR '||'
-                    ) AS payment_history_json
-                FROM loan_applications la
-                LEFT JOIN loans l ON la.application_id = l.application_id
-                LEFT JOIN loan_products lp ON la.product_id = lp.product_id
-                LEFT JOIN payment_schedules ps ON l.loan_id = ps.loan_id
-                LEFT JOIN payment_transactions pt ON l.loan_id = pt.loan_id AND pt.status IN ('completed', 'pending', 'failed', 'reversed')
-                WHERE la.customer_id = :customer_id
-                GROUP BY la.application_reference, lp.product_name, COALESCE(l.principal_amount, la.requested_amount),
-                         l.loan_id, la.status, COALESCE(l.start_date, la.application_date)
-                ORDER BY la.application_date DESC
+                    ELSE NULL
+                END AS dueDate,
+                CASE
+                    WHEN l.loan_id IS NOT NULL THEN
+                        (SELECT total_amount FROM payment_schedules WHERE loan_id = l.loan_id AND status = 'pending' ORDER BY due_date ASC LIMIT 1)
+                    ELSE 0
+                END AS nextPayment,
+                ROUND(IFNULL(SUM(pt.amount_paid) / COALESCE(l.principal_amount, la.requested_amount) * 100, 0)) AS progress,
+                CASE
+                    WHEN l.loan_id IS NULL THEN la.status
+                    WHEN la.status = 'under_review' THEN 'pending'
+                    WHEN l.status = 'paid' THEN 'completed'
+                    WHEN l.status = 'defaulted' THEN 'active' -- Assuming 'defaulted' means still active for display
+                    WHEN la.status = 'rejected' OR la.status = 'cancelled' THEN 'rejected'
+                    ELSE l.status
+                END AS status,
+                COALESCE(l.start_date, la.application_date) AS start_date,
+                GROUP_CONCAT(
+                    CASE
+                        WHEN pt.transaction_id IS NOT NULL THEN
+                            JSON_OBJECT(
+                                'paymentDate', DATE_FORMAT(pt.payment_date, '%Y-%m-%d'),
+                                'amountPaid', FORMAT(pt.amount_paid / 100, 2),
+                                'status', pt.status
+                            )
+                        ELSE NULL
+                    END
+                    SEPARATOR '||'
+                ) AS payment_history_json
+            FROM loan_applications la
+            LEFT JOIN loans l ON la.application_id = l.application_id
+            LEFT JOIN loan_products lp ON la.product_id = lp.product_id
+            LEFT JOIN payment_schedules ps ON l.loan_id = ps.loan_id
+            LEFT JOIN payment_transactions pt ON l.loan_id = pt.loan_id AND pt.status IN ('completed', 'pending', 'failed', 'reversed')
+            WHERE la.customer_id = :customer_id
+            GROUP BY la.application_reference, lp.product_name, COALESCE(l.principal_amount, la.requested_amount),
+                    l.loan_id, la.status, COALESCE(l.start_date, la.application_date)
+            ORDER BY la.application_date DESC;
             ");
             $stmt->execute(['customer_id' => $customerId]);
             $loans = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -171,6 +172,7 @@ class LoanApplicationService
                     'status' => $loan['status'],
                     'start_date' => $this->formatDate($loan['start_date']),
                     'payment_history' => $paymentHistory,
+                    'loan_id' => $loan['loan_id']
                 ];
             }
 

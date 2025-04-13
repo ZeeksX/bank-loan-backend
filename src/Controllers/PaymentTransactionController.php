@@ -28,9 +28,28 @@ class PaymentTransactionController
     // POST /api/payment-transaction
     public function store()
     {
-        $data = json_decode(file_get_contents("php://input"), true);
-        $id = $this->service->createTransaction($data);
-        echo json_encode(['message' => 'Payment transaction recorded successfully', 'id' => $id]);
+        try {
+            $data = json_decode(file_get_contents("php://input"), true);
+            if (!$data) {
+                throw new Exception('Invalid input data');
+            }
+
+            $requiredFields = ['loan_id', 'customer_id', 'amount_paid', 'payment_date', 'payment_method'];
+            foreach ($requiredFields as $field) {
+                if (!isset($data[$field])) {
+                    throw new Exception("Missing required field: $field");
+                }
+            }
+
+            $transactionId = $this->service->createTransaction($data);
+
+            http_response_code(201);
+            echo json_encode(['message' => 'Payment transaction created successfully', 'transaction_id' => $transactionId +1]);
+
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
     }
 
     // PUT/PATCH /api/payment_transactions/{id}

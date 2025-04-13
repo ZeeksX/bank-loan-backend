@@ -156,64 +156,68 @@ try {
 
         // Customer Loans table
         "CREATE OR REPLACE VIEW customer_loans AS
-            SELECT 
+            SELECT
                 la.application_reference AS id,
                 lp.product_name AS name,
-                -- Use the approved loan's principal if available; otherwise, use the requested amount
                 CONCAT('₦', FORMAT(COALESCE(l.principal_amount, la.requested_amount), 0)) AS amount,
-                CONCAT('₦', FORMAT(IFNULL(SUM(pt.amount_paid), 0), 0)) AS amountPaid,
-                -- For dueDate, show the loan's due date if approved, or a placeholder if not
-                CASE 
-                WHEN l.loan_id IS NOT NULL THEN 
-                    DATE_FORMAT(
-                    CASE 
-                        WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
-                        ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
+                -- Calculate amountPaid correctly from payment_transactions
+                CONCAT('₦', FORMAT(IFNULL((
+                    SELECT SUM(pt2.amount_paid)
+                    FROM payment_transactions pt2
+                    WHERE pt2.loan_id = l.loan_id AND pt2.status = 'completed'
+                ), 0), 0)) AS amountPaid,
+                DATE_FORMAT(
+                    CASE
+                        WHEN l.loan_id IS NOT NULL THEN
+                            CASE
+                                WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
+                                ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
+                            END
+                        ELSE la.application_date
                     END, '%M %d, %Y'
-                    )
-                ELSE 'Pending'
-                END AS dueDate,
-                -- Calculate nextPayment only if a loan exists; otherwise set as N/A or 0
-                CASE 
-                WHEN l.loan_id IS NOT NULL THEN 
-                    CONCAT('₦', FORMAT(
-                        CASE
-                            WHEN (
-                                SELECT ps2.total_amount
-                                FROM payment_schedules ps2
-                                WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
-                                ORDER BY ps2.due_date ASC
-                                LIMIT 1
-                            ) IS NOT NULL THEN (
-                                SELECT ps2.total_amount
-                                FROM payment_schedules ps2
-                                WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
-                                ORDER BY ps2.due_date ASC
-                                LIMIT 1
-                            )
-                            ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
-                        END, 0))
-                ELSE 'N/A'
-                END AS nextPayment,
+                ) AS dueDate,
+                CONCAT('₦', FORMAT(
+                    CASE
+                        WHEN (
+                            SELECT ps2.total_amount
+                            FROM payment_schedules ps2
+                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                            ORDER BY ps2.due_date ASC
+                            LIMIT 1
+                        ) IS NOT NULL THEN (
+                            SELECT ps2.total_amount
+                            FROM payment_schedules ps2
+                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                            ORDER BY ps2.due_date ASC
+                            LIMIT 1
+                        )
+                        ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
+                    END, 0)
+                ) AS nextPayment,
+                -- Calculate progress based on amountPaid
                 ROUND(
-                    IFNULL(SUM(pt.amount_paid) / COALESCE(l.principal_amount, la.requested_amount) * 100, 0)
+                    IFNULL(
+                        (
+                            SELECT SUM(pt3.amount_paid)
+                            FROM payment_transactions pt3
+                            WHERE pt3.loan_id = l.loan_id AND pt3.status = 'completed'
+                        ) / COALESCE(l.principal_amount, la.requested_amount) * 100
+                    , 0)
                 ) AS progress,
-                -- Determine the status: if the loan is not created yet then use the application status, 
-                -- but if it is approved then show the approved status for example.
-                CASE 
-                WHEN l.loan_id IS NULL THEN la.status
-                WHEN la.status = 'under_review' THEN 'pending'
-                ELSE la.status
+                CASE
+                    WHEN l.loan_id IS NULL THEN la.status
+                    WHEN la.status = 'under_review' THEN 'pending'
+                    ELSE la.status
                 END AS status,
-                -- Use the loan start date if available, otherwise the application submission date
                 DATE_FORMAT(COALESCE(l.start_date, la.application_date), '%M %d, %Y') AS date,
-                la.customer_id
+                la.customer_id,
+                l.loan_id
             FROM loan_applications la
             LEFT JOIN loans l ON la.application_id = l.application_id
             LEFT JOIN loan_products lp ON la.product_id = lp.product_id
             LEFT JOIN payment_schedules ps ON l.loan_id = ps.loan_id
-            LEFT JOIN payment_transactions pt ON l.loan_id = pt.loan_id AND pt.status = 'completed'
-            GROUP BY 
+            LEFT JOIN payment_transactions pt ON l.loan_id = pt.loan_id
+            GROUP BY
                 la.application_reference,
                 lp.product_name,
                 COALESCE(l.principal_amount, la.requested_amount),
