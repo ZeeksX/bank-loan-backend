@@ -56,25 +56,41 @@ class LoanApplicationService
         return [$this->pdo->lastInsertId(), $applicationReference];
     }
 
-    public function updateLoanApplication($applicationId, $data)
+    public function updateLoanApplication($applicationId, array $data, $reviewedBy = null)
     {
-        if (empty($data)) {
-            throw new Exception("No data provided to update.");
-        }
+        // Define allowed columns to prevent arbitrary updates
+        $allowedColumns = ['status', 'reviewed_by', 'review_date'];
 
-        $fields = [];
-        $values = [];
+        $sqlParts = [];
+        $params = [];
 
+        // Add the application ID to the parameters for the WHERE clause
+        $params['application_id'] = $applicationId;
+
+        // Build the SET part of the SQL query dynamically
         foreach ($data as $key => $value) {
-            $fields[] = "$key = ?";
-            $values[] = $value;
+            // Check if the key (column name) is in the allowed columns list
+            if (in_array($key, $allowedColumns)) {
+                $sqlParts[] = "$key = :$key";
+                $params[$key] = $value;
+            }
         }
 
-        $values[] = $applicationId;
+        // If there are no valid columns to update, return true (or false)
+        if (empty($sqlParts)) {
+            return true; // Or false, depending on your desired behavior
+        }
 
-        $sql = "UPDATE loan_applications SET " . implode(", ", $fields) . " WHERE application_id = ?";
+        $sql = "UPDATE loan_applications SET " . implode(', ', $sqlParts) . " WHERE application_id = :application_id";
+
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($values);
+
+        try {
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log("Database error in updateLoanApplication: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function getCustomerLoans($customerId)
