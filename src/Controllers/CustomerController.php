@@ -69,9 +69,23 @@ class CustomerController
     public function update($id)
     {
         $data = json_decode(file_get_contents("php://input"), true);
-        $this->customerService->updateCustomer($id, $data);
+
+        // Fetch current customer data
+        $currentCustomer = $this->customerService->getCustomerById($id);
+        if (!$currentCustomer) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Customer not found']);
+            return;
+        }
+
+        // Merge current data with the new data (new data takes priority)
+        $updatedData = array_merge($currentCustomer, $data);
+
+        // Now update with merged data
+        $this->customerService->updateCustomer($id, $updatedData);
         echo json_encode(['message' => 'Customer updated successfully']);
     }
+
 
     // DELETE /api/customers/{id}
     public function destroy($id)

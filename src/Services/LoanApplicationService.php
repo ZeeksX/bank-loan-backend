@@ -56,20 +56,25 @@ class LoanApplicationService
         return [$this->pdo->lastInsertId(), $applicationReference];
     }
 
-    public function updateLoanApplication($id, array $data, $reviewedBy = null)
+    public function updateLoanApplication($applicationId, $data)
     {
-        $sqlParts = ["status = :status"];
-        $params = ['status' => $data['status'], 'id' => $id];
-
-        if ($reviewedBy !== null) {
-            $sqlParts[] = "reviewed_by = :reviewed_by";
-            $params['reviewed_by'] = $reviewedBy;
-            $sqlParts[] = "review_date = NOW()";
+        if (empty($data)) {
+            throw new Exception("No data provided to update.");
         }
 
-        $sql = "UPDATE loan_applications SET " . implode(', ', $sqlParts) . " WHERE application_id = :id";
+        $fields = [];
+        $values = [];
+
+        foreach ($data as $key => $value) {
+            $fields[] = "$key = ?";
+            $values[] = $value;
+        }
+
+        $values[] = $applicationId;
+
+        $sql = "UPDATE loan_applications SET " . implode(", ", $fields) . " WHERE application_id = ?";
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($params);
+        return $stmt->execute($values);
     }
 
     public function getCustomerLoans($customerId)
@@ -142,10 +147,10 @@ class LoanApplicationService
                 $formattedLoans[] = [
                     'id' => $loan['id'],
                     'name' => $loan['name'],
-                    'amount' => $this->formatNaira($loan['amount'] * 100), 
-                    'amountPaid' => $this->formatNaira($loan['amountPaid'] * 100), 
+                    'amount' => $this->formatNaira($loan['amount'] * 100),
+                    'amountPaid' => $this->formatNaira($loan['amountPaid'] * 100),
                     'dueDate' => $this->formatDate($loan['dueDate']),
-                    'nextPayment' => $loan['nextPayment'] ? $this->formatNaira($loan['nextPayment'] * 100) : 'N/A', 
+                    'nextPayment' => $loan['nextPayment'] ? $this->formatNaira($loan['nextPayment'] * 100) : 'N/A',
                     'progress' => (int) $loan['progress'],
                     'status' => $loan['status'],
                     'start_date' => $this->formatDate($loan['start_date']),

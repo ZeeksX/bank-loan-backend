@@ -59,7 +59,7 @@ class LoanApplicationController
     }
 
     // PUT /api/loans/applications/{id}
-    public function updateLoanApplication($applicationId)
+    public function updateLoanApplicationById($applicationId)
     {
         try {
             AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
@@ -70,7 +70,7 @@ class LoanApplicationController
                 throw new Exception('Invalid or missing status in request data');
             }
 
-            // Assuming you have a way to get the current logged-in employee's ID
+            // Get the current logged-in employee's ID
             $loggedInEmployeeId = AuthMiddleware::getAuthenticatedUserId();
 
             $updated = $this->loanApplicationService->updateLoanApplication($applicationId, $data, $loggedInEmployeeId);
@@ -111,6 +111,88 @@ class LoanApplicationController
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+    // PUT /api/loans/applications/ref/{application_reference}
+    public function updateLoanApplicationByApplicationReference($applicationReference)
+    {
+        try {
+            AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+
+            $data = json_decode(file_get_contents("php://input"), true);
+
+            if (!$data || !isset($data['status'])) {
+                throw new Exception('Invalid or missing status in request data');
+            }
+
+            // First, we need to find the application ID from the application reference
+            $applicationId = $this->getApplicationIdFromReference($applicationReference);
+
+            if (!$applicationId) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Loan application with reference ' . $applicationReference . ' not found']);
+                return;
+            }
+
+            // Get the current logged-in employee's ID
+            $loggedInEmployeeId = AuthMiddleware::getAuthenticatedUserId();
+
+            $updated = $this->loanApplicationService->updateLoanApplication($applicationId, $data, $loggedInEmployeeId);
+
+            if ($updated) {
+                if ($data['status'] === 'approved') {
+                    $applicationData = $this->loanApplicationService->getLoanApplicationById($applicationId);
+                    if ($applicationData) {
+                        // Fetch the interest rate from loan_products
+                        $productData = $this->loanProductService->getLoanProductById($applicationData['product_id']);
+                        $interestRate = $productData ? $productData['interest_rate'] : 0.05; // Default if not found
+
+                        $loanData = [
+                            'application_id' => $applicationId,
+                            'customer_id' => $applicationData['customer_id'],
+                            'product_id' => $applicationData['product_id'],
+                            'principal_amount' => $applicationData['requested_amount'],
+                            'interest_rate' => $interestRate, // Use fetched interest rate
+                            'term' => $applicationData['requested_term'], // Use stored term
+                            'start_date' => date('Y-m-d'),
+                            // Calculate end_date or leave it out if only term is needed
+                            'end_date' => date('Y-m-d', strtotime('+' . $applicationData['requested_term'] . ' months')),
+                            'approved_by' => $loggedInEmployeeId,
+                        ];
+
+                        $loanId = $this->loanService->createLoan($loanData);
+                    }
+                }
+                http_response_code(200);
+                echo json_encode([
+                    'message' => 'Loan application updated successfully',
+                    'application_reference' => $applicationReference,
+                    'application_id' => $applicationId
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Loan application not found or no changes made']);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+    // Helper method to get application ID from reference
+    private function getApplicationIdFromReference($applicationReference)
+    {
+        try {
+            $sql = "SELECT application_id FROM loan_applications WHERE application_reference = :reference LIMIT 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['reference' => $applicationReference]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return $result ? $result['application_id'] : null;
+        } catch (PDOException $e) {
+            error_log("Error in getApplicationIdFromReference: " . $e->getMessage());
+            return null;
         }
     }
 

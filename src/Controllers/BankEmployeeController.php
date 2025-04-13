@@ -72,8 +72,14 @@ class BankEmployeeController
     public function update($id)
     {
         $data = json_decode(file_get_contents("php://input"), true);
-        $this->service->updateEmployee($id, $data);
-        echo json_encode(['message' => 'Bank employee updated successfully']);
+        // Use the dynamic update method; only fields in $data will be updated.
+        $result = $this->service->updateEmployee($id, $data);
+        if ($result) {
+            echo json_encode(['message' => 'Bank employee updated successfully']);
+        } else {
+            http_response_code(400);
+            echo json_encode(['message' => 'No valid fields provided for update']);
+        }
     }
 
     // DELETE /api/bank_employees/{id}

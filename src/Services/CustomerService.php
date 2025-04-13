@@ -53,30 +53,28 @@ class CustomerService
 
     public function updateCustomer($id, array $data)
     {
-        $stmt = $this->pdo->prepare(
-            "UPDATE customers 
-             SET first_name = :first_name, 
-                 last_name = :last_name, 
-                 email = :email,
-                 income = :income,
-                 account_number = :bankAccount,
-                 bank = :bank,
-                 employer = :employer,
-                 occupation = :occupation
-             WHERE customer_id = :id"
-        );
-        return $stmt->execute([
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'email' => $data['email'],
-            'income' => $data['income'],
-            'bankAccount' => $data['bankAccount'],
-            'bank' => $data['bank'],
-            'employer' => $data['employer'],
-            'occupation' => $data['occupation'],
-            'id' => $id
-        ]);
+        // Filter only allowed fields to update
+        $allowedFields = ['first_name', 'last_name', 'email', 'income', 'bankAccount', 'bank', 'employer', 'occupation', 'id_verification_status'];
+        $setParts = [];
+        $params = [];
+
+        foreach ($allowedFields as $field) {
+            if (isset($data[$field])) {
+                // For the SQL query, if your column name differs from the key, adjust accordingly.
+                $setParts[] = "$field = :$field";
+                $params[$field] = $data[$field];
+            }
+        }
+        // Ensure we have at least one column to update.
+        if (empty($setParts)) {
+            return false;
+        }
+        $params['id'] = $id;
+        $sql = "UPDATE customers SET " . implode(', ', $setParts) . " WHERE customer_id = :id";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
+
 
     public function deleteCustomer($id)
     {

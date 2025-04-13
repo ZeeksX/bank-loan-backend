@@ -107,13 +107,26 @@ class LoanService
 
     public function updateLoan($id, array $data)
     {
-        $stmt = $this->pdo->prepare(
-            "UPDATE loans SET status = :status WHERE loan_id = :id"
-        );
-        return $stmt->execute([
-            'status' => $data['status'],
-            'id' => $id
-        ]);
+        // Remove empty fields or loan_id if accidentally passed
+        unset($data['loan_id']);
+        $data = array_filter($data, fn($value) => $value !== null);
+
+        if (empty($data)) {
+            return false;
+        }
+
+        // Dynamically build SET clause
+        $fields = [];
+        foreach ($data as $key => $value) {
+            $fields[] = "$key = :$key";
+        }
+
+        $sql = "UPDATE loans SET " . implode(", ", $fields) . " WHERE loan_id = :id";
+        $stmt = $this->pdo->prepare($sql);
+
+        // Bind values + loan_id
+        $data['id'] = $id;
+        return $stmt->execute($data);
     }
 
     public function deleteLoan($id)

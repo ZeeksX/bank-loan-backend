@@ -1,4 +1,5 @@
 <?php
+
 // File: config/routes.php
 
 require_once __DIR__ . '/../src/Controllers/AuthController.php';
@@ -154,11 +155,18 @@ switch (true) {
         $controller->getLoanApplicationsById($matches[1]);
         break;
 
-    // PUT /api/loans/applications/{id}
+    // PUT /api/loans/applications/{id} - For NUMERIC ID
     case preg_match('#^/api/loans/applications/(\d+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
         $controller = new LoanApplicationController();
-        $controller->updateLoanApplication($matches[1]);
+        $controller->updateLoanApplicationById($matches[1]);
+        break;
+
+    // PUT /api/loans/applications/ref/{application_reference} - For ALPHANUMERIC APPLICATION REFERENCE
+    case preg_match('#^/api/loans/applications/ref/([a-zA-Z0-9-]+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new LoanApplicationController();
+        $controller->updateLoanApplicationByApplicationReference($matches[1]);
         break;
 
     // GET /api/loans/customer/{id}

@@ -38,6 +38,13 @@ class LoanProductController
     public function update($id)
     {
         $data = json_decode(file_get_contents("php://input"), true);
+
+        if (empty($data)) {
+            http_response_code(400);
+            echo json_encode(['message' => 'No update data provided']);
+            return;
+        }
+
         $success = $this->loanProductService->updateProduct($id, $data);
 
         if ($success) {
