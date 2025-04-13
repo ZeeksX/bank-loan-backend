@@ -223,6 +223,13 @@ switch (true) {
         $controller->index();
         break;
 
+    // PUT /api/payment-transactions/{id} 
+    case preg_match('#^/api/payment_transactions/(\d+)$#', $requestUri, $matches) && $requestMethod === 'PUT':
+        AuthMiddleware::check(['admin', 'loan_officer', 'manager']);
+        $controller = new PaymentTransactionController();
+        $controller->update($matches[1]);
+        break;
+
     // GET /api/me
     case $requestUri === '/api/me' && $requestMethod === 'GET':
         AuthMiddleware::check(['admin', 'loan_officer', 'manager', 'customer']);
