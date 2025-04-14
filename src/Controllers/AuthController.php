@@ -33,7 +33,7 @@ class AuthController
         )
         ) {
             http_response_code(400);
-            echo json_encode(['message' => 'Missing required fields']);
+            echo json_encode(['message' => 'Missing required fields: first_name, last_name, email, password, date_of_birth, address, city, state, postal_code, country, phone']);
             exit;
         }
 
@@ -48,23 +48,23 @@ class AuthController
         $stmt->execute(['email' => $data['email']]);
         if ($stmt->fetch()) {
             http_response_code(409);
-            echo json_encode(['message' => 'Email already registered']);
+            echo json_encode(['message' => 'Email address already registered']);
             return;
         }
 
         $hashedPassword = password_hash($data['password'], PASSWORD_BCRYPT);
 
         $stmt = $this->pdo->prepare("
-        INSERT INTO customers (
-            first_name, last_name, email, password, date_of_birth,
-            address, city, state, postal_code, country, phone,
-            ssn, income, employment_status, credit_score, id_verification_status
-        ) VALUES (
-            :first_name, :last_name, :email, :password, :date_of_birth,
-            :address, :city, :state, :postal_code, :country, :phone,
-            :ssn, :income, :employment_status, :credit_score, 'Pending'
-        )
-    ");
+            INSERT INTO customers (
+                first_name, last_name, email, password, date_of_birth,
+                address, city, state, postal_code, country, phone,
+                ssn, income, employment_status, credit_score, id_verification_status
+            ) VALUES (
+                :first_name, :last_name, :email, :password, :date_of_birth,
+                :address, :city, :state, :postal_code, :country, :phone,
+                :ssn, :income, :employment_status, :credit_score, 'Pending'
+            )
+        ");
 
         $stmt->execute([
             'first_name' => $data['first_name'],
@@ -102,7 +102,7 @@ class AuthController
         if (!isset($data['email'], $data['password'])) {
             error_log("Missing email or password in request");
             http_response_code(400);
-            echo json_encode(['message' => 'Email and password required']);
+            echo json_encode(['message' => 'Email and password are required']);
             return;
         }
 
@@ -118,7 +118,7 @@ class AuthController
                 if (!password_verify($data['password'], $customer['password'])) {
                     error_log("Password verification failed for customer");
                     http_response_code(401);
-                    echo json_encode(['message' => 'Invalid credentials']);
+                    echo json_encode(['message' => 'Invalid email or password']);
                     return;
                 }
 
@@ -169,7 +169,7 @@ class AuthController
                 if (!password_verify($data['password'], $employee['password'])) {
                     error_log("Password verification failed for employee");
                     http_response_code(401);
-                    echo json_encode(['message' => 'invalid credentials']);
+                    echo json_encode(['message' => 'Invalid email or password']);
                     return;
                 }
 
@@ -211,7 +211,7 @@ class AuthController
 
             error_log("No user found with email: " . $data['email']);
             http_response_code(401);
-            echo json_encode(['message' => 'Invalid credentials']);
+            echo json_encode(['message' => 'Invalid email or password']);
 
         } catch (PDOException $e) {
             error_log("Database error during login: " . $e->getMessage());
@@ -220,17 +220,27 @@ class AuthController
         }
     }
 
-    private function storeRefreshToken($customerId, $refreshToken)
+    private function storeRefreshToken($userId, $refreshToken)
     {
-        $stmt = $this->pdo->prepare("DELETE FROM refresh_tokens WHERE customer_id = :customer_id");
-        $stmt->execute(['customer_id' => $customerId]);
+        // Determine if it's a customer or employee
+        $userTable = 'customers';
+        $userIdColumn = 'customer_id';
+        $stmtCheck = $this->pdo->prepare("SELECT customer_id FROM customers WHERE customer_id = :user_id");
+        $stmtCheck->execute(['user_id' => $userId]);
+        if (!$stmtCheck->fetch()) {
+            $userTable = 'bank_employees';
+            $userIdColumn = 'employee_id';
+        }
 
-        $stmt = $this->pdo->prepare("
-        INSERT INTO refresh_tokens (customer_id, token, expires_at)
-        VALUES (:customer_id, :token, DATE_ADD(NOW(), INTERVAL 7 DAY))
+        $stmtDelete = $this->pdo->prepare("DELETE FROM refresh_tokens WHERE {$userIdColumn} = :user_id");
+        $stmtDelete->execute(['user_id' => $userId]);
+
+        $stmtInsert = $this->pdo->prepare("
+            INSERT INTO refresh_tokens ({$userIdColumn}, token, expires_at)
+            VALUES (:user_id, :token, DATE_ADD(NOW(), INTERVAL 7 DAY))
         ");
-        $stmt->execute([
-            'customer_id' => $customerId,
+        $stmtInsert->execute([
+            'user_id' => $userId,
             'token' => $refreshToken
         ]);
     }
@@ -241,39 +251,56 @@ class AuthController
 
         if (!isset($data['refresh'])) {
             http_response_code(400);
-            echo json_encode(['message' => 'Refresh token required']);
+            echo json_encode(['message' => 'Refresh token is required']);
             return;
         }
 
         try {
             $decoded = JWTHandler::validateToken($data['refresh']);
             if (!$decoded || $decoded->type !== 'refresh') {
-                throw new Exception('Invalid token type');
+                http_response_code(401);
+                echo json_encode(['message' => 'Invalid refresh token']);
+                return;
+            }
+
+            $userId = $decoded->sub;
+            $role = $decoded->role;
+            $userTable = '';
+            $userIdColumn = '';
+
+            if ($role === 'customer') {
+                $userTable = 'customers';
+                $userIdColumn = 'customer_id';
+            } else {
+                $userTable = 'bank_employees';
+                $userIdColumn = 'employee_id';
             }
 
             $stmt = $this->pdo->prepare("
-            SELECT c.customer_id
-            FROM refresh_tokens rt
-            JOIN customers c ON rt.customer_id = c.customer_id
-            WHERE rt.token = :token AND rt.expires_at > NOW()
+                SELECT rt.token, {$userTable}.{$userIdColumn}
+                FROM refresh_tokens rt
+                JOIN {$userTable} ON rt.{$userIdColumn} = {$userTable}.{$userIdColumn}
+                WHERE rt.token = :token AND rt.expires_at > NOW()
             ");
             $stmt->execute(['token' => $data['refresh']]);
             $tokenData = $stmt->fetch();
 
             if (!$tokenData) {
-                throw new Exception('Invalid or expired refresh token');
+                http_response_code(401);
+                echo json_encode(['message' => 'Invalid or expired refresh token']);
+                return;
             }
 
             // Generate a new access token
             $accessToken = JWTHandler::generateToken(
-                $tokenData['customer_id'],
-                'customer',
+                $userId,
+                $role,
                 3600,
                 ['type' => 'access']
             );
 
             echo json_encode([
-                'message' => 'Token refreshed successfully',
+                'message' => 'Access token refreshed successfully',
                 'access_token' => $accessToken
             ]);
         } catch (Exception $e) {
@@ -288,7 +315,7 @@ class AuthController
         $headers = getallheaders();
         if (!isset($headers['Authorization'])) {
             http_response_code(401);
-            echo json_encode(['message' => 'Authorization header missing']);
+            echo json_encode(['message' => 'Authorization header is missing']);
             return;
         }
 
@@ -297,7 +324,9 @@ class AuthController
         try {
             $decoded = JWTHandler::validateToken($token);
             if (!$decoded || $decoded->type !== 'access') {
-                throw new Exception('Invalid token type');
+                http_response_code(401);
+                echo json_encode(['message' => 'Invalid access token']);
+                return;
             }
 
             $userId = $decoded->sub;
@@ -308,11 +337,11 @@ class AuthController
             } else {
                 // Join bank_employees with departments to return department name
                 $stmt = $this->pdo->prepare("
-                SELECT be.*, d.name as department_name 
-                FROM bank_employees be 
-                JOIN departments d ON be.department_id = d.department_id 
-                WHERE be.employee_id = :user_id
-            ");
+                    SELECT be.*, d.name as department_name
+                    FROM bank_employees be
+                    JOIN departments d ON be.department_id = d.department_id
+                    WHERE be.employee_id = :user_id
+                ");
             }
 
             $stmt->execute(['user_id' => $userId]);
@@ -328,7 +357,7 @@ class AuthController
             echo json_encode(['user' => $user]);
         } catch (Exception $e) {
             http_response_code(401);
-            echo json_encode(['message' => $e->getMessage()]);
+            echo json_encode(['message' => 'Invalid or expired access token']);
         }
     }
 }
