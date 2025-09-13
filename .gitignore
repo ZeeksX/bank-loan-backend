@@ -7,7 +7,6 @@
 
 # Composer
 /vendor
-/composer.lock
 
 # PHPStorm
 .idea/
