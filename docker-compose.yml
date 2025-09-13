@@ -1,11 +1,13 @@
+version: '3.8'
+
 services:
   app:
     build: .
     ports:
-      - "8000:80"
+      - "${APP_PORT}:80"
     environment:
-      - MONGODB_URI=mongodb+srv://ikinwotezekiel_db_user:Or62Zbn5xGffJmGI@bank-secure-1.kaw3lal.mongodb.net/bank_loan_db?retryWrites=true&w=majority
-      - DB_DATABASE=bank_loan_db
+      - MONGODB_URI=${MONGODB_URI}
+      - DB_DATABASE=${DB_DATABASE}
     depends_on:
       - mongodb
     volumes:
@@ -14,9 +16,9 @@ services:
   mongodb:
     image: mongo:6.0
     environment:
-      MONGO_INITDB_DATABASE: bank_loan_db
+      MONGO_INITDB_DATABASE: ${DB_DATABASE}
     ports:
-      - "27017:27017"
+      - "${MONGO_PORT}:27017"
     volumes:
       - mongo_data:/data/db
 
