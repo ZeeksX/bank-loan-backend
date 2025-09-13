@@ -1,28 +1,32 @@
 <?php
 // File: migrations.php
+// Database migration script for Docker deployment on Render
 
-// Autoload dependencies and load environment variables via your config
-require_once __DIR__ . '/vendor/autoload.php';
+// Load Composer dependencies (if any)
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
 
-// Get PDO connection from our existing database config
-$pdo = require __DIR__ . '/config/database.php';
+// Get database credentials from environment variables (for Docker/Render)
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbName = getenv('DB_DATABASE') ?: 'loan_management';
+$dbUser = getenv('DB_USERNAME') ?: 'root';
+$dbPass = getenv('DB_PASSWORD') ?: '';
 
 try {
-    // Create PDO connection
-    $pdo = new PDO("mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4", $dbUser, $dbPass);
-
-    // Set PDO error mode to exception
+    // First, try to connect without selecting a database
+    $pdo = new PDO("mysql:host=$dbHost;charset=utf8mb4", $dbUser, $dbPass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Create database if it doesn't exist
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbName` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `$dbName`");
 
-    echo "Connected successfully to MySQL server <br>";
-    echo "Database '$dbName' selected or created successfully <br>";
+    echo "Connected successfully to MySQL server<br>";
+    echo "Database '$dbName' selected or created successfully<br>";
 
-    // SQL statements array
-    $sqlStatements = [
+    // SQL statements array - Phase 1: Create all tables first
+    $sqlStatementsPhase1 = [
         // Customers table
         "CREATE TABLE IF NOT EXISTS customers (
             customer_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -154,78 +158,6 @@ try {
             FOREIGN KEY (approved_by) REFERENCES bank_employees(employee_id)
         )",
 
-        // Customer Loans table
-        "CREATE OR REPLACE VIEW customer_loans AS
-            SELECT
-                la.application_reference AS id,
-                lp.product_name AS name,
-                CONCAT('₦', FORMAT(COALESCE(l.principal_amount, la.requested_amount), 0)) AS amount,
-                -- Calculate amountPaid from payment_transactions
-                CONCAT('₦', FORMAT(IFNULL((
-                    SELECT SUM(pt.amount_paid)
-                    FROM payment_transactions pt
-                    WHERE pt.loan_id = l.loan_id AND pt.status = 'completed'
-                ), 0), 0)) AS amountPaid,
-                DATE_FORMAT(
-                    CASE
-                        WHEN l.loan_id IS NOT NULL THEN
-                            CASE
-                                WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
-                                ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
-                            END
-                        ELSE la.application_date
-                    END, '%M %d, %Y'
-                ) AS dueDate,
-                CONCAT('₦', FORMAT(
-                    CASE
-                        WHEN (
-                            SELECT ps2.total_amount
-                            FROM payment_schedules ps2
-                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
-                            ORDER BY ps2.due_date ASC
-                            LIMIT 1
-                        ) IS NOT NULL THEN (
-                            SELECT ps2.total_amount
-                            FROM payment_schedules ps2
-                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
-                            ORDER BY ps2.due_date ASC
-                            LIMIT 1
-                        )
-                        ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
-                    END, 0)
-                ) AS nextPayment,
-                -- Calculate progress based on amount paid from payment_transactions
-                ROUND(
-                    IFNULL(
-                        (
-                            SELECT SUM(pt.amount_paid)
-                            FROM payment_transactions pt
-                            WHERE pt.loan_id = l.loan_id AND pt.status = 'completed'
-                        ) / COALESCE(l.principal_amount, la.requested_amount) * 100
-                    , 0)
-                ) AS progress,
-                CASE
-                    WHEN l.loan_id IS NULL THEN la.status
-                    WHEN la.status = 'under_review' THEN 'pending'
-                    ELSE la.status
-                END AS status,
-                DATE_FORMAT(COALESCE(l.start_date, la.application_date), '%M %d, %Y') AS date,
-                la.customer_id,
-                l.loan_id
-            FROM loan_applications la
-            LEFT JOIN loans l ON la.application_id = l.application_id
-            LEFT JOIN loan_products lp ON la.product_id = lp.product_id
-            LEFT JOIN payment_schedules ps ON l.loan_id = ps.loan_id
-            GROUP BY
-                la.application_reference,
-                lp.product_name,
-                COALESCE(l.principal_amount, la.requested_amount),
-                l.loan_id,
-                la.status,
-                COALESCE(l.start_date, la.application_date),
-                la.customer_id;
-        ",
-
         // Documents table
         "CREATE TABLE IF NOT EXISTS documents (
             document_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -328,17 +260,101 @@ try {
         )"
     ];
 
-    // Execute each SQL statement
-    foreach ($sqlStatements as $index => $sql) {
+    // Phase 2: Create the view after all tables exist
+    $sqlStatementsPhase2 = [
+        // Customer Loans view - created after all tables exist
+        "CREATE OR REPLACE VIEW customer_loans AS
+            SELECT
+                la.application_reference AS id,
+                lp.product_name AS name,
+                CONCAT('₦', FORMAT(COALESCE(l.principal_amount, la.requested_amount), 0)) AS amount,
+                CONCAT('₦', FORMAT(IFNULL((
+                    SELECT SUM(pt.amount_paid)
+                    FROM payment_transactions pt
+                    WHERE pt.loan_id = l.loan_id AND pt.status = 'completed'
+                ), 0), 0)) AS amountPaid,
+                DATE_FORMAT(
+                    CASE
+                        WHEN l.loan_id IS NOT NULL THEN
+                            CASE
+                                WHEN MAX(ps.due_date) IS NOT NULL THEN MAX(ps.due_date)
+                                ELSE DATE_ADD(l.start_date, INTERVAL l.term MONTH)
+                            END
+                        ELSE la.application_date
+                    END, '%M %d, %Y'
+                ) AS dueDate,
+                CONCAT('₦', FORMAT(
+                    CASE
+                        WHEN (
+                            SELECT ps2.total_amount
+                            FROM payment_schedules ps2
+                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                            ORDER BY ps2.due_date ASC
+                            LIMIT 1
+                        ) IS NOT NULL THEN (
+                            SELECT ps2.total_amount
+                            FROM payment_schedules ps2
+                            WHERE ps2.loan_id = l.loan_id AND ps2.status = 'pending'
+                            ORDER BY ps2.due_date ASC
+                            LIMIT 1
+                        )
+                        ELSE (l.principal_amount + (l.principal_amount * (l.interest_rate / 100) * (l.term / 12))) / l.term
+                    END, 0)
+                ) AS nextPayment,
+                ROUND(
+                    IFNULL(
+                        (
+                            SELECT SUM(pt.amount_paid)
+                            FROM payment_transactions pt
+                            WHERE pt.loan_id = l.loan_id AND pt.status = 'completed'
+                        ) / COALESCE(l.principal_amount, la.requested_amount) * 100
+                    , 0)
+                ) AS progress,
+                CASE
+                    WHEN l.loan_id IS NULL THEN la.status
+                    WHEN la.status = 'under_review' THEN 'pending'
+                    ELSE la.status
+                END AS status,
+                DATE_FORMAT(COALESCE(l.start_date, la.application_date), '%M %d, %Y') AS date,
+                la.customer_id,
+                l.loan_id
+            FROM loan_applications la
+            LEFT JOIN loans l ON la.application_id = l.application_id
+            LEFT JOIN loan_products lp ON la.product_id = lp.product_id
+            LEFT JOIN payment_schedules ps ON l.loan_id = ps.loan_id
+            GROUP BY
+                la.application_reference,
+                lp.product_name,
+                COALESCE(l.principal_amount, la.requested_amount),
+                l.loan_id,
+                la.status,
+                COALESCE(l.start_date, la.application_date),
+                la.customer_id"
+    ];
+
+    // Execute Phase 1: Create all tables
+    echo "<h3>Phase 1: Creating Tables</h3>";
+    foreach ($sqlStatementsPhase1 as $index => $sql) {
         try {
             $pdo->exec($sql);
-            echo "Table " . ($index + 1) . " created successfully \n";
+            echo "Table " . ($index + 1) . " created successfully<br>";
         } catch (PDOException $e) {
-            echo "Error creating table " . ($index + 1) . ": " . $e->getMessage() . " <br>";
+            echo "Error creating table " . ($index + 1) . ": " . $e->getMessage() . "<br>";
         }
     }
 
-    echo "\n All tables have been created successfully!";
+    // Execute Phase 2: Create the view
+    echo "<h3>Phase 2: Creating Views</h3>";
+    foreach ($sqlStatementsPhase2 as $index => $sql) {
+        try {
+            $pdo->exec($sql);
+            echo "View created successfully<br>";
+        } catch (PDOException $e) {
+            echo "Error creating view: " . $e->getMessage() . "<br>";
+        }
+    }
+
+    echo "<h3>Migration completed successfully!</h3>";
 
 } catch (PDOException $e) {
     die("Database connection failed: " . $e->getMessage());

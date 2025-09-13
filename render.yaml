@@ -1,0 +1,57 @@
+# render.yaml
+services:
+  - type: web
+    name: php-backend
+    env: docker
+    docker:
+      dockerfile: Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      # Add your database connection details
+      - key: DB_HOST
+        fromService:
+          type: pserv
+          name: mysql-database
+          property: host
+      - key: DB_PORT
+        value: 3306
+      - key: DB_DATABASE
+        fromService:
+          type: pserv
+          name: mysql-database
+          property: database
+      - key: DB_USERNAME
+        fromService:
+          type: pserv
+          name: mysql-database
+          property: username
+      - key: DB_PASSWORD
+        fromService:
+          type: pserv
+          name: mysql-database
+          property: password
+    healthCheckPath: /
+    autoDeploy: true
+
+  # Database service (optional - remove if you don't need it)
+  - type: pserv
+    name: mysql-database
+    plan: free
+    disk:
+      name: data
+      mountPath: /var/lib/mysql
+      sizeGB: 1
+    engine: mysql
+    engineVersion: "8.0"
+    envVars:
+      - key: MYSQL_ROOT_PASSWORD
+        generateValue: true
+      - key: MYSQL_DATABASE
+        value: loan_management
+      - key: MYSQL_USER
+        value: loan_user
+      - key: MYSQL_PASSWORD
+        generateValue: true
