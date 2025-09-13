@@ -10,17 +10,17 @@ try {
         throw new Exception('MONGODB_URI environment variable is not set');
     }
     
-    // MongoDB connection using the URI
+    // MongoDB connection using the Atlas URI
     $mongo = new MongoDB\Client($mongoUri);
     
-    // Test the connection by listing databases
+    // Test the connection by listing databases (this will trigger authentication)
     $mongo->listDatabases();
     
     // Extract database name from URI or use environment variable
     $dbName = getenv('DB_DATABASE');
     if (empty($dbName)) {
-        // Try to extract from URI
-        preg_match('/\/([^?\/]+)(\?|$)/', $mongoUri, $matches);
+        // Try to extract from URI - for Atlas, it's usually in the path
+        preg_match('/mongodb\+srv:\/\/[^/]+\/([^?]+)/', $mongoUri, $matches);
         $dbName = $matches[1] ?? 'bank_loan_db';
     }
     
@@ -29,9 +29,9 @@ try {
     // Store the database instance for later use
     $GLOBALS['mongo_db'] = $db;
     
-    // Only echo in development mode
+    // Only log in development mode
     if (getenv('APP_DEBUG') === 'true') {
-        echo "MongoDB connected successfully to database: " . $dbName;
+        error_log("MongoDB connected successfully to database: " . $dbName);
     }
     
 } catch (Exception $e) {
