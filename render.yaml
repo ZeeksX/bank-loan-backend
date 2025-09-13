@@ -1,57 +1,34 @@
-# render.yaml
 services:
   - type: web
-    name: php-backend
+    name: bank-loan-backend
     env: docker
-    docker:
-      dockerfile: Dockerfile
+    dockerfile: Dockerfile
     envVars:
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
         value: false
-      # Add your database connection details
-      - key: DB_HOST
-        fromService:
-          type: pserv
-          name: mysql-database
-          property: host
-      - key: DB_PORT
-        value: 3306
-      - key: DB_DATABASE
-        fromService:
-          type: pserv
-          name: mysql-database
-          property: database
-      - key: DB_USERNAME
-        fromService:
-          type: pserv
-          name: mysql-database
-          property: username
-      - key: DB_PASSWORD
-        fromService:
-          type: pserv
-          name: mysql-database
-          property: password
-    healthCheckPath: /
+      - key: DB_CONNECTION
+        value: mongodb
+      - key: MONGODB_URI
+        fromSecret: MONGODB_URI
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_USERNAME
+        fromSecret: MAIL_USERNAME
+      - key: MAIL_PASSWORD
+        fromSecret: MAIL_PASSWORD
+      - key: MAIL_FROM_ADDRESS
+        fromSecret: MAIL_USERNAME
+      - key: MAIL_FROM_NAME
+        value: Bank Loan Management System
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://bank-loan-frontend.onrender.com
+    healthCheckPath: /health
     autoDeploy: true
-
-  # Database service (optional - remove if you don't need it)
-  - type: pserv
-    name: mysql-database
-    plan: free
-    disk:
-      name: data
-      mountPath: /var/lib/mysql
-      sizeGB: 1
-    engine: mysql
-    engineVersion: "8.0"
-    envVars:
-      - key: MYSQL_ROOT_PASSWORD
-        generateValue: true
-      - key: MYSQL_DATABASE
-        value: loan_management
-      - key: MYSQL_USER
-        value: loan_user
-      - key: MYSQL_PASSWORD
-        generateValue: true

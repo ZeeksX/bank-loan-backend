@@ -2,6 +2,7 @@
 *.log
 *.cache
 *.env
+.env.production
 /uploads/
 
 # Composer
