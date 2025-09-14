@@ -1,6 +1,12 @@
 <?php
 // File: config/database.php
+
 require_once __DIR__ . '/../vendor/autoload.php';
+
+// Load our custom MongoDB client if the library isn't available
+if (!class_exists('MongoDB\Client')) {
+    require_once __DIR__ . '/../src/Database/MongoClient.php';
+}
 
 try {
     // Get MongoDB URI from environment variable
@@ -10,28 +16,32 @@ try {
         throw new Exception('MONGODB_URI environment variable is not set');
     }
     
-    // MongoDB connection using the Atlas URI
-    $mongo = new MongoDB\Client($mongoUri);
-    
-    // Test the connection by listing databases (this will trigger authentication)
-    $mongo->listDatabases();
-    
     // Extract database name from URI or use environment variable
     $dbName = getenv('DB_DATABASE');
     if (empty($dbName)) {
-        // Try to extract from URI - for Atlas, it's usually in the path
-        preg_match('/mongodb\+srv:\/\/[^/]+\/([^?]+)/', $mongoUri, $matches);
-        $dbName = $matches[1] ?? 'bank_loan_db';
+        // Try to extract from URI
+        preg_match('/mongodb(\+srv)?:\/\/[^/]+\/([^?]+)/', $mongoUri, $matches);
+        $dbName = $matches[2] ?? 'bank_loan_db';
     }
     
-    $db = $mongo->selectDatabase($dbName);
-    
-    // Store the database instance for later use
-    $GLOBALS['mongo_db'] = $db;
+    // Try to use MongoDB library first, fall back to our custom client
+    if (class_exists('MongoDB\Client')) {
+        $mongo = new MongoDB\Client($mongoUri);
+        $mongo->listDatabases(); // Test connection
+        $db = $mongo->selectDatabase($dbName);
+        $GLOBALS['mongo_db'] = $db;
+        $GLOBALS['mongo_client_type'] = 'library';
+    } else {
+        // Use our custom client
+        $mongo = new App\Database\MongoClient($mongoUri, $dbName);
+        $mongo->ping(); // Test connection
+        $GLOBALS['mongo_db'] = $mongo;
+        $GLOBALS['mongo_client_type'] = 'custom';
+    }
     
     // Only log in development mode
     if (getenv('APP_DEBUG') === 'true') {
-        error_log("MongoDB connected successfully to database: " . $dbName);
+        error_log("MongoDB connected successfully to database: " . $dbName . " using " . $GLOBALS['mongo_client_type'] . " client");
     }
     
 } catch (Exception $e) {
@@ -44,4 +54,13 @@ try {
         die("Database connection error. Please try again later.");
     }
 }
-?>
+
+// Helper function to get database instance
+function getDatabase() {
+    return $GLOBALS['mongo_db'] ?? null;
+}
+
+// Helper function to check client type
+function getDatabaseClientType() {
+    return $GLOBALS['mongo_client_type'] ?? 'unknown';
+}

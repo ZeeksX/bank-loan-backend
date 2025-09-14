@@ -111,7 +111,6 @@
     } else {
         echo "<p class='warning'>⚠️ Vendor directory not found. Run 'composer install' to install dependencies.</p>";
     }
-
     // --- MongoDB Connection Test ---
     echo "<h2>📊 MongoDB Connection Test</h2>";
 
