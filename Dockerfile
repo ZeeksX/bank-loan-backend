@@ -68,7 +68,28 @@ RUN composer dump-autoload --optimize
 # Create test files
 RUN echo "<?php echo 'API is working! Server is running.'; ?>" > public/index.php \
     && echo "<?php echo 'Docker debug: Working at ' . date('Y-m-d H:i:s'); ?>" > public/debug.php \
-    && echo "<?php phpinfo(); ?>" > public/phpinfo.php
+    && echo "<?php phpinfo(); ?>" > public/phpinfo.php \
+    && echo "<?php \
+    require_once '../vendor/autoload.php'; \
+    require_once '../config/database.php'; \
+    header('Content-Type: application/json'); \
+    try { \
+        \$db = getDatabase(); \
+        \$clientType = getDatabaseClientType(); \
+        echo json_encode([ \
+            'status' => 'success', \
+            'client_type' => \$clientType, \
+            'database' => 'connected', \
+            'timestamp' => date('Y-m-d H:i:s') \
+        ]); \
+    } catch (Exception \$e) { \
+        echo json_encode([ \
+            'status' => 'error', \
+            'message' => \$e->getMessage(), \
+            'timestamp' => date('Y-m-d H:i:s') \
+        ]); \
+    } \
+    ?>" > public/test-db.php
 
 # Set document root
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
@@ -80,13 +101,13 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod -R 775 storage
 
+# Copy the startup script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost/debug.php || exit 1
 
-# Copy the startup script
-COPY docker-start.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-start.sh
-
 # Use our startup script as the entrypoint
-CMD ["docker-start.sh"]
+CMD ["docker-entrypoint.sh"]
