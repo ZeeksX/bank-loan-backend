@@ -130,4 +130,15 @@ class DatabaseService {
             return $this->client->ping();
         }
     }
+
+    public function deleteMany($collection, $filter) {
+        if ($this->clientType === 'library') {
+            $result = $this->client->$collection->deleteMany($filter);
+            return [
+                'deletedCount' => $result->getDeletedCount()
+            ];
+        } else {
+            return $this->client->deleteMany($collection, $filter);
+        }
+    }
 }
