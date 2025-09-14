@@ -17,6 +17,15 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     git \
+    gnupg \
+    && curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg --dearmor \
+    && echo "deb [signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/6.0 main" | tee /etc/apt/sources.list.d/mongodb-org-6.0.list \
+    && apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    mongodb-mongosh \
+    && pecl install mongodb \
+    && docker-php-ext-enable mongodb \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
     pdo_mysql \
@@ -26,6 +35,7 @@ RUN apt-get update && apt-get install -y \
     bcmath \
     zip \
     gd \
+    sockets \
     && a2enmod rewrite
 
 # Install Composer
@@ -72,6 +82,24 @@ RUN if [ ! -d "storage" ]; then \
 
 # Create debug file
 RUN echo "<?php echo 'Docker debug: Working at ' . date('Y-m-d H:i:s'); ?>" > /var/www/html/public/debug.php
+
+# Create MongoDB test script
+RUN echo "<?php \
+    echo '<h2>MongoDB Extension Test</h2>'; \
+    if (extension_loaded('mongodb')) { \
+        echo '<p style=\"color: green;\">✅ MongoDB extension is loaded</p>'; \
+        try { \
+            \$mongo = new MongoDB\Client(getenv('MONGODB_URI')); \
+            \$dbs = \$mongo->listDatabases(); \
+            echo '<p style=\"color: green;\">✅ MongoDB connection successful</p>'; \
+        } catch (Exception \$e) { \
+            echo '<p style=\"color: orange;\">⚠️ MongoDB connection failed: ' . htmlspecialchars(\$e->getMessage()) . '</p>'; \
+        } \
+    } else { \
+        echo '<p style=\"color: red;\">❌ MongoDB extension is not loaded</p>'; \
+    } \
+    phpinfo(INFO_MODULES); \
+?>" > /var/www/html/public/mongodb_test.php
 
 # Expose port
 EXPOSE 80

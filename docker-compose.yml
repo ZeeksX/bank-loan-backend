@@ -6,10 +6,12 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI}
       - DB_DATABASE=${DB_DATABASE}
+      - APP_DEBUG=${APP_DEBUG}
     depends_on:
       - mongodb
     volumes:
       - .:/var/www/html
+    restart: unless-stopped
 
   mongodb:
     image: mongo:6.0
@@ -19,6 +21,7 @@ services:
       - "${MONGO_PORT}:27017"
     volumes:
       - mongo_data:/data/db
+    restart: unless-stopped
 
 volumes:
   mongo_data:
