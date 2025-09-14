@@ -1,5 +1,5 @@
 #!/bin/bash
-# File: docker-entrypoint.sh
+# File: docker-start.sh
 
 # Wait for MongoDB to be ready
 echo "Waiting for MongoDB to start..."
