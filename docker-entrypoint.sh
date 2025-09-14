@@ -52,6 +52,9 @@ echo ">>> container entrypoint starting"
 # Ensure correct apache port
 update_apache_port
 
+# Set ServerName to avoid Apache warning
+echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
 # Try to reach MongoDB (best-effort). If MONGODB_URI missing, skip.
 if [ -n "$MONGODB_URI" ]; then
   wait_for_mongo || echo "Warning: MongoDB not reachable (timed out). Continuing startup..."

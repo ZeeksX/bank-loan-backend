@@ -1,6 +1,5 @@
 <?php
 // File: public/index.php
-
 require_once __DIR__ . '/../vendor/autoload.php';
 
 // Load environment variables
@@ -18,6 +17,20 @@ if ($_SERVER['REQUEST_URI'] === '/health') {
     exit;
 }
 
-// Load app config and routes
-require_once __DIR__ . '/../config/app.php';
+// Simple welcome message for root path
+if ($_SERVER['REQUEST_URI'] === '/') {
+    echo json_encode([
+        'message' => 'Welcome to Bank Loan Management System API',
+        'status' => 'online',
+        'timestamp' => date('Y-m-d H:i:s'),
+        'endpoints' => [
+            '/health' => 'Health check',
+            '/test' => 'System test page',
+            '/api/*' => 'API endpoints'
+        ]
+    ]);
+    exit;
+}
+
+// For other routes, load the routes configuration
 require_once __DIR__ . '/../config/routes.php';

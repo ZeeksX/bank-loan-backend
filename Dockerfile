@@ -4,6 +4,7 @@ FROM php:8.3-apache
 # Set defaults
 ENV PORT=8080
 ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
 # Install system deps, build tools, and enable mongodb extension
 RUN apt-get update \
@@ -15,6 +16,10 @@ RUN apt-get update \
   && docker-php-ext-enable mongodb \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+# Set Apache document root to public directory
+RUN sed -ri -e "s|/var/www/html|${APACHE_DOCUMENT_ROOT}|g" /etc/apache2/sites-available/*.conf \
+    && sed -ri -e "s|/var/www/|${APACHE_DOCUMENT_ROOT}|g" /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
 # Copy composer binary from official composer image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -32,6 +37,9 @@ COPY . /var/www/html
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
   && chown -R www-data:www-data /var/www/html
+
+# Enable Apache rewrite module
+RUN a2enmod rewrite
 
 # Expose default HTTP port (the entrypoint will adjust Apache to $PORT at runtime)
 EXPOSE 80
