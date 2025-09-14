@@ -5,6 +5,7 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 use MongoDB\Client;
+use MongoDB\BSON\UTCDateTime;
 
 // Load environment variables
 $envPath = __DIR__ . '/.env';
