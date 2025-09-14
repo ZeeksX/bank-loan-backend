@@ -1,0 +1,14 @@
+.git
+.gitignore
+.dockerignore
+node_modules
+*.log
+.idea
+.vscode
+Dockerfile
+docker-compose.yml
+README.md
+.env
+.env.local
+.env.production
+docker-entrypoint.sh

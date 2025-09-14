@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: bank-loan-backend
+    env: docker
+    dockerfile: Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: DB_CONNECTION
+        value: mongodb
+      - key: MONGODB_URI
+        fromSecret: MONGODB_URI
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_USERNAME
+        fromSecret: MAIL_USERNAME
+      - key: MAIL_PASSWORD
+        fromSecret: MAIL_PASSWORD
+      - key: MAIL_FROM_ADDRESS
+        fromSecret: MAIL_USERNAME
+      - key: MAIL_FROM_NAME
+        value: Bank Loan Management System
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://bank-loan-frontend.onrender.com
+    healthCheckPath: /health
+    autoDeploy: true

@@ -2,11 +2,11 @@
 *.log
 *.cache
 *.env
+.env.production
 /uploads/
 
 # Composer
 /vendor
-/composer.lock
 
 # PHPStorm
 .idea/
