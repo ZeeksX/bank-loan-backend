@@ -1,69 +1,17 @@
-# Bank Loan Backend
+# Bank Loan Backend — Docker + Render
 
-This project is a backend service for managing bank loan applications, approvals, and repayments. It provides APIs for handling customer data, loan processing, and payment tracking.
+This repo is configured to run with PHP 8.2 + Apache and uses the official `mongodb/mongodb` PHP library (requires the `ext-mongodb` PHP extension installed in the image).
 
-## Features
+## What’s included
+- `Dockerfile` — installs `ext-mongodb`, Composer, copies source, runs `composer install`.
+- `docker-entrypoint.sh` — waits for DB, runs `migrations.php`, sets Apache to use `$PORT`, starts server.
+- `docker-compose.yml` — local dev example with a Mongo service.
 
-- Customer management (CRUD operations)
-- Loan application and approval workflows
-- Payment tracking and history
-- Secure authentication and authorization
-- RESTful API design
+## Build & run locally (without Compose)
+```bash
+# build
+docker build -t bank-loan-backend:dev .
 
-## Technologies Used
-
-- **Programming Language**: PHP
-- **Database**: MySQL
-- **Authentication**: JWT
-- **Other Tools**: Docker, Swagger for API documentation
-
-## Installation
-
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/ZeeksX/bank-loan-backend.git
-    cd bank-loan-backend
-    ```
-
-2. Install dependencies:
-    ```bash
-    composer install
-    ```
-
-3. Set up environment variables:
-    - Copy the `.env.example` file to `.env`:
-      ```bash
-      cp .env.example .env
-      ```
-    - Update the `.env` file with your database credentials and other required variables.
-
-4. Run database migrations:
-    ```bash
-    php migrations.php
-    ```
-
-5. Start the development server:
-    ```bash
-    php -S localhost:8000 -t public
-    ```
-
-## API Documentation
-
-The API documentation is available at `/api-docs` when the server is running. Use tools like Postman or Swagger UI to explore the endpoints.
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository.
-2. Create a new branch for your feature or bugfix.
-3. Commit your changes and push the branch.
-4. Open a pull request.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Contact
-
-For questions or support, please contact [ikinwotezekiel@gmail.com].
+# run (example using Atlas URI)
+docker run -e MONGODB_URI="mongodb+srv://<user>:<pass>@cluster0.xxxx.mongodb.net/dbname" \
+  -e PORT=8080 -p 8080:8080 bank-loan-backend:dev

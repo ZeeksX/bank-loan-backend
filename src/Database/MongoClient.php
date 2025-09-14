@@ -1,142 +1,123 @@
 <?php
-// File: src/Database/MongoClient.php
-
 namespace App\Database;
 
+use MongoDB\Client as MongoLibraryClient;
+use MongoDB\BSON\ObjectId;
 use Exception;
 
-class MongoClient {
-    private $manager;
-    private $database;
-    
-    public function __construct($uri, $database) {
-        // Check if MongoDB extension is available
-        if (!extension_loaded('mongodb')) {
-            throw new Exception('MongoDB extension is not loaded');
+class MongoClient
+{
+    private MongoLibraryClient $client;
+    private string $database;
+
+    public function __construct(string $uri, string $database)
+    {
+        if (!class_exists(MongoLibraryClient::class)) {
+            throw new Exception('mongodb/mongodb library is not installed (composer).');
         }
-        
-        try {
-            $this->manager = new \MongoDB\Driver\Manager($uri);
-            $this->database = $database;
-            
-            // Test connection
-            $this->ping();
-        } catch (Exception $e) {
-            throw new Exception("MongoDB connection failed: " . $e->getMessage());
-        }
+
+        $this->client = new MongoLibraryClient($uri, [
+            'connectTimeoutMS' => 5000,
+            'serverSelectionTimeoutMS' => 5000,
+        ]);
+
+        $this->database = $database;
+        // test connection (throws on failure)
+        $this->ping();
     }
-    
-    public function ping() {
+
+    public function ping(): bool
+    {
         try {
-            $command = new \MongoDB\Driver\Command(['ping' => 1]);
-            $this->manager->executeCommand($this->database, $command);
+            $this->client->selectDatabase($this->database)->command(['ping' => 1]);
             return true;
         } catch (Exception $e) {
-            throw new Exception("Ping failed: " . $e->getMessage());
+            throw new Exception('MongoDB ping failed: ' . $e->getMessage());
         }
     }
-    
-    public function insertOne($collection, $document) {
-        try {
-            // Add timestamps
-            $now = time();
-            $document['created_at'] = $now;
-            $document['updated_at'] = $now;
-            
-            $bulk = new \MongoDB\Driver\BulkWrite();
-            $id = $bulk->insert($document);
-            
-            $result = $this->manager->executeBulkWrite($this->database . '.' . $collection, $bulk);
-            
-            return [
-                'insertedId' => (string)$id,
-                'insertedCount' => $result->getInsertedCount()
-            ];
-        } catch (Exception $e) {
-            throw new Exception("Insert failed: " . $e->getMessage());
-        }
+
+    public function insertOne(string $collection, array $doc): array
+    {
+        $doc['created_at'] ??= time();
+        $doc['updated_at'] ??= time();
+        $result = $this->client->selectCollection($this->database, $collection)->insertOne($doc);
+        return [
+            'insertedId' => (string)$result->getInsertedId(),
+            'insertedCount' => $result->getInsertedCount(),
+            'acknowledged' => $result->isAcknowledged()
+        ];
     }
-    
-    public function findOne($collection, $filter = []) {
-        try {
-            $query = new \MongoDB\Driver\Query($filter, ['limit' => 1]);
-            $cursor = $this->manager->executeQuery($this->database . '.' . $collection, $query);
-            
-            foreach ($cursor as $document) {
-                return (array)$document;
-            }
-            return null;
-        } catch (Exception $e) {
-            throw new Exception("Find failed: " . $e->getMessage());
+
+    public function insertMany(string $collection, array $docs): array
+    {
+        $now = time();
+        foreach ($docs as &$d) {
+            $d['created_at'] ??= $now;
+            $d['updated_at'] ??= $now;
         }
+        $result = $this->client->selectCollection($this->database, $collection)->insertMany($docs);
+        return [
+            'insertedIds' => array_map('strval', $result->getInsertedIds()),
+            'insertedCount' => $result->getInsertedCount(),
+            'acknowledged' => $result->isAcknowledged()
+        ];
     }
-    
-    public function find($collection, $filter = [], $options = []) {
-        try {
-            $query = new \MongoDB\Driver\Query($filter, $options);
-            $cursor = $this->manager->executeQuery($this->database . '.' . $collection, $query);
-            
-            $results = [];
-            foreach ($cursor as $document) {
-                $results[] = (array)$document;
-            }
-            return $results;
-        } catch (Exception $e) {
-            throw new Exception("Find failed: " . $e->getMessage());
-        }
+
+    public function findOne(string $collection, array $filter = [], array $options = [])
+    {
+        $doc = $this->client->selectCollection($this->database, $collection)->findOne($filter, $options);
+        return $doc ? $doc->getArrayCopy() : null;
     }
-    
-    public function updateOne($collection, $filter, $update) {
-        try {
-            // Add updated_at timestamp
-            if (isset($update['$set'])) {
-                $update['$set']['updated_at'] = time();
-            } else {
-                $update = ['$set' => array_merge($update, ['updated_at' => time()])];
-            }
-            
-            $bulk = new \MongoDB\Driver\BulkWrite();
-            $bulk->update($filter, $update);
-            
-            $result = $this->manager->executeBulkWrite($this->database . '.' . $collection, $bulk);
-            
-            return [
-                'matchedCount' => $result->getMatchedCount(),
-                'modifiedCount' => $result->getModifiedCount()
-            ];
-        } catch (Exception $e) {
-            throw new Exception("Update failed: " . $e->getMessage());
+
+    public function find(string $collection, array $filter = [], array $options = []): array
+    {
+        $cursor = $this->client->selectCollection($this->database, $collection)->find($filter, $options);
+        $results = [];
+        foreach ($cursor as $doc) {
+            $results[] = $doc->getArrayCopy();
         }
+        return $results;
     }
-    
-    public function deleteOne($collection, $filter) {
-        try {
-            $bulk = new \MongoDB\Driver\BulkWrite();
-            $bulk->delete($filter, ['limit' => 1]);
-            
-            $result = $this->manager->executeBulkWrite($this->database . '.' . $collection, $bulk);
-            
-            return [
-                'deletedCount' => $result->getDeletedCount()
-            ];
-        } catch (Exception $e) {
-            throw new Exception("Delete failed: " . $e->getMessage());
-        }
+
+    public function updateOne(string $collection, array $filter, array $update, array $options = []): array
+    {
+        $update['$set']['updated_at'] = time();
+        $result = $this->client->selectCollection($this->database, $collection)->updateOne($filter, $update, $options);
+        return [
+            'matchedCount' => $result->getMatchedCount(),
+            'modifiedCount' => $result->getModifiedCount(),
+            'acknowledged' => $result->isAcknowledged()
+        ];
     }
-    
-    public function count($collection, $filter = []) {
-        try {
-            $command = new \MongoDB\Driver\Command([
-                'count' => $collection,
-                'query' => $filter
-            ]);
-            
-            $cursor = $this->manager->executeCommand($this->database, $command);
-            $result = current($cursor->toArray());
-            
-            return $result->n ?? 0;
-        } catch (Exception $e) {
-            throw new Exception("Count failed: " . $e->getMessage());
-        }
+
+    public function deleteOne(string $collection, array $filter): array
+    {
+        $result = $this->client->selectCollection($this->database, $collection)->deleteOne($filter);
+        return ['deletedCount' => $result->getDeletedCount(), 'acknowledged' => $result->isAcknowledged()];
+    }
+
+    public function createIndex(string $collection, array $keys, array $options = [])
+    {
+        return $this->client->selectCollection($this->database, $collection)->createIndex($keys, $options);
+    }
+
+    public function listCollections(): array
+    {
+        $cursor = $this->client->selectDatabase($this->database)->listCollections();
+        $names = [];
+        foreach ($cursor as $c) $names[] = $c->getName();
+        return $names;
+    }
+
+    public function count(string $collection, array $filter = []): int
+    {
+        return (int)$this->client->selectCollection($this->database, $collection)->countDocuments($filter);
+    }
+
+
+    public function deleteMany(string $collection, array $filter): array
+    {
+        $result = $this->client->selectCollection($this->database, $collection)->deleteMany($filter);
+        return ['deletedCount' => $result->getDeletedCount(), 'acknowledged' => $result->isAcknowledged()];
     }
 }

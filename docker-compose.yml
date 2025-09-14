@@ -1,46 +1,28 @@
 services:
   php-backend:
     build: .
-    container_name: php-backend
     ports:
-      - "8080:80"
+      - "8080:8080"
     environment:
-      - APP_ENV=production
-      - APP_DEBUG=false
-      - MONGODB_URI=${MONGODB_URI}
-      - DB_DATABASE=${DB_DATABASE}
-      - DB_HOST=mongodb
-      - DB_PORT=27017
-      - DB_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
-      - DB_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
-      - MAIL_HOST=${MAIL_HOST}
-      - MAIL_PORT=${MAIL_PORT}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION}
-      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
-      - MAIL_FROM_NAME=${MAIL_FROM_NAME}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - MONGODB_URI=mongodb://mongo:27017/bank_loan_db
+      - DB_DATABASE=bank_loan_db
+      - PORT=8080
+      - APP_ENV=development
+      - APP_DEBUG=true
     depends_on:
-      - mongodb
+      - mongo
     volumes:
-      - ./storage:/var/www/html/storage
-    restart: unless-stopped
-
-  mongodb:
+      - ./:/var/www/html
+  mongo:
     image: mongo:6.0
-    container_name: mongodb
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
-      - MONGO_INITDB_DATABASE=${DB_DATABASE}
+      - MONGO_INITDB_ROOT_USERNAME=devuser
+      - MONGO_INITDB_ROOT_PASSWORD=devpass
+      - MONGO_INITDB_DATABASE=bank_loan_db
     volumes:
       - mongo_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    restart: unless-stopped
 
 volumes:
   mongo_data:
