@@ -85,7 +85,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost/debug.php || exit 1
 
 # Copy the startup script
-COPY docker-start.sh /usr/local/bin/
+COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-start.sh
 
 # Use our startup script as the entrypoint
