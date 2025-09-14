@@ -11,4 +11,3 @@ README.md
 .env
 .env.local
 .env.production
-docker-entrypoint.sh
