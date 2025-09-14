@@ -20,17 +20,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     gnupg \
-    php-pear \
+    php-dev \
     autoconf \
     pkg-config \
     libssl-dev \
     && curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg --dearmor \
     && echo "deb [signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/6.0 main" | tee /etc/apt/sources.list.d/mongodb-org-6.0.list \
     && apt-get update && apt-get install -y mongodb-mongosh \
-    # Install MongoDB PHP extension
     && pecl install mongodb \
     && docker-php-ext-enable mongodb \
-    # Enable GD with JPEG/Freetype
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo_mysql \
@@ -41,7 +39,6 @@ RUN apt-get update && apt-get install -y \
         zip \
         gd \
         sockets \
-    # Enable Apache mod_rewrite
     && a2enmod rewrite \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
