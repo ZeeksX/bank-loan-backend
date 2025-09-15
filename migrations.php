@@ -3,49 +3,158 @@ require_once __DIR__ . '/vendor/autoload.php';
 use App\Services\DatabaseService;
 
 $service = DatabaseService::getInstance();
-$db = $service->client();
+$pdo = $service->client(); // Assume DatabaseService returns a PDO instance
 
-$collections = [
-    'customers' => [['key' => ['email' => 1], 'unique' => true], ['key' => ['ssn' => 1], 'unique' => true]],
-    'departments' => [['key' => ['name' => 1], 'unique' => true]],
-    'bank_employees' => [['key' => ['email' => 1], 'unique' => true], ['key' => ['department_id' => 1]]],
-    'loan_products' => [['key' => ['product_name' => 1]]],
-    'loan_applications' => [['key' => ['application_reference' => 1], 'unique' => true]],
-    'collaterals' => [['key' => ['customer_id' => 1]]],
-    'loans' => [['key' => ['application_id' => 1]]],
-    'documents' => [['key' => ['customer_id' => 1]]],
-    'payment_schedules' => [['key' => ['loan_id' => 1], 'unique' => false]],
-    'payment_transactions' => [['key' => ['loan_id' => 1]]],
-    'notifications' => [['key' => ['recipient_id' => 1]]],
-    'audit_logs' => [['key' => ['user_id' => 1]]],
-    'refresh_tokens' => [['key' => ['token' => 1], 'unique' => true]]
+$tables = [
+    'customers' => [
+        'create' => "CREATE TABLE IF NOT EXISTS customers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            ssn VARCHAR(20) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE (email),
+            UNIQUE (ssn)
+        )",
+    ],
+    'departments' => [
+        'create' => "CREATE TABLE IF NOT EXISTS departments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE (name)
+        )",
+    ],
+    'bank_employees' => [
+        'create' => "CREATE TABLE IF NOT EXISTS bank_employees (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            department_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE (email),
+            FOREIGN KEY (department_id) REFERENCES departments(id)
+        )",
+    ],
+    'loan_products' => [
+        'create' => "CREATE TABLE IF NOT EXISTS loan_products (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            product_name VARCHAR(100) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (product_name)
+        )",
+    ],
+    'loan_applications' => [
+        'create' => "CREATE TABLE IF NOT EXISTS loan_applications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            application_reference VARCHAR(50) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE (application_reference)
+        )",
+    ],
+    'collaterals' => [
+        'create' => "CREATE TABLE IF NOT EXISTS collaterals (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (customer_id),
+            FOREIGN KEY (customer_id) REFERENCES customers(id)
+        )",
+    ],
+    'loans' => [
+        'create' => "CREATE TABLE IF NOT EXISTS loans (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            application_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (application_id),
+            FOREIGN KEY (application_id) REFERENCES loan_applications(id)
+        )",
+    ],
+    'documents' => [
+        'create' => "CREATE TABLE IF NOT EXISTS documents (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (customer_id),
+            FOREIGN KEY (customer_id) REFERENCES customers(id)
+        )",
+    ],
+    'payment_schedules' => [
+        'create' => "CREATE TABLE IF NOT EXISTS payment_schedules (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            loan_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (loan_id),
+            FOREIGN KEY (loan_id) REFERENCES loans(id)
+        )",
+    ],
+    'payment_transactions' => [
+        'create' => "CREATE TABLE IF NOT EXISTS payment_transactions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            loan_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (loan_id),
+            FOREIGN KEY (loan_id) REFERENCES loans(id)
+        )",
+    ],
+    'notifications' => [
+        'create' => "CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            recipient_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (recipient_id)
+        )",
+    ],
+    'audit_logs' => [
+        'create' => "CREATE TABLE IF NOT EXISTS audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (user_id)
+        )",
+    ],
+    'refresh_tokens' => [
+        'create' => "CREATE TABLE IF NOT EXISTS refresh_tokens (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            token VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE (token)
+        )",
+    ],
 ];
 
-foreach ($collections as $name => $indexes) {
-    echo "Ensuring collection: $name\n";
+foreach ($tables as $name => $table) {
+    echo "Ensuring table: $name\n";
     try {
-        // createCollection is safe (library will ignore if already exists)
-        $service->client()->createIndex($name, ['_id' => 1]); // ensure collection exists (cheap)
-        foreach ($indexes as $idx) {
-            $keys = $idx['key'];
-            $options = $idx['unique'] ?? false ? ['unique' => true] : [];
-            $service->client()->createIndex($name, $keys, $options);
-        }
+        $pdo->exec($table['create']);
         echo " ✓ $name OK\n";
     } catch (Exception $e) {
         echo " ! $name: " . $e->getMessage() . "\n";
     }
 }
 
-// seed departments if absent
-$departmentsCount = $service->client()->count('departments');
-if ($departmentsCount === 0) {
-    $service->client()->insertOne('departments', [
-        'name' => 'Loan Department',
-        'description' => 'Handles all loan-related operations',
-        'created_at' => time(),
-        'updated_at' => time()
-    ]);
+// Seed departments if absent
+$stmt = $pdo->query("SELECT COUNT(*) FROM departments");
+$count = $stmt->fetchColumn();
+if ($count === 0) {
+    $pdo->exec("INSERT INTO departments (name, description, created_at, updated_at) VALUES (
+        'Loan Department',
+        'Handles all loan-related operations',
+        NOW(),
+        NOW()
+    )");
     echo "Seeded departments\n";
 }
 

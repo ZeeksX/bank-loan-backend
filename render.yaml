@@ -9,9 +9,15 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: DB_CONNECTION
-        value: mongodb
-      - key: MONGODB_URI
-        fromSecret: MONGODB_URI
+        value: mysql
+      - key: MYSQL_HOST
+        fromSecret: MYSQL_HOST
+      - key: MYSQL_DATABASE
+        value: bank_loan_db
+      - key: MYSQL_USER
+        fromSecret: MYSQL_USER
+      - key: MYSQL_PASSWORD
+        fromSecret: MYSQL_PASSWORD
       - key: JWT_SECRET
         generateValue: true
       - key: MAIL_HOST
@@ -31,6 +37,6 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://bank-loan-frontend.onrender.com
       - key: PORT
-        value: "10000" 
+        value: "10000"
     healthCheckPath: /health
     autoDeploy: true

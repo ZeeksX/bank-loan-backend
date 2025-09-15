@@ -12,34 +12,21 @@ update_apache_port() {
   fi
 }
 
-# Wait for DB ping using PHP Mongo client (works with Atlas MONGODB_URI or local mongodb host)
-wait_for_mongo() {
+# Wait for MySQL to be reachable
+wait_for_mysql() {
   local timeout=${DB_WAIT_TIMEOUT:-60}
   local start=$(date +%s)
-  echo "Waiting for MongoDB to be reachable (timeout ${timeout}s)..."
+  echo "Waiting for MySQL to be reachable (timeout ${timeout}s)..."
   while true; do
-    php -r '
-      require __DIR__ . "/vendor/autoload.php";
-      $uri = getenv("MONGODB_URI");
-      $db = getenv("DB_DATABASE") ?: "admin";
-      if (!$uri) { exit(1); }
-      try {
-          $c = new MongoDB\Client($uri, ["serverSelectionTimeoutMS" => 3000]);
-          $c->selectDatabase($db)->command(["ping" => 1]);
-          exit(0);
-      } catch (Exception $e) {
-          // non-zero
-          exit(1);
-      }
-    '
+    mysqladmin ping -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent
     if [ $? -eq 0 ]; then
-      echo "MongoDB reachable"
+      echo "MySQL reachable"
       return 0
     fi
     now=$(date +%s)
     elapsed=$((now - start))
     if [ "$elapsed" -ge "$timeout" ]; then
-      echo "Timed out waiting for MongoDB after ${timeout}s"
+      echo "Timed out waiting for MySQL after ${timeout}s"
       return 1
     fi
     sleep 1
@@ -55,11 +42,11 @@ update_apache_port
 # Set ServerName to avoid Apache warning
 echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# Try to reach MongoDB (best-effort). If MONGODB_URI missing, skip.
-if [ -n "$MONGODB_URI" ]; then
-  wait_for_mongo || echo "Warning: MongoDB not reachable (timed out). Continuing startup..."
+# Try to reach MySQL (best-effort). If MYSQL_HOST missing, skip.
+if [ -n "$MYSQL_HOST" ]; then
+  wait_for_mysql || echo "Warning: MySQL not reachable (timed out). Continuing startup..."
 else
-  echo "MONGODB_URI not set — skipping DB ping (ensure you have a DB or MONGODB_URI set)"
+  echo "MYSQL_HOST not set — skipping DB ping (ensure you have a DB or MYSQL_HOST set)"
 fi
 
 # Run PHP migrations (do not fail the container on migration warnings)
