@@ -2,8 +2,13 @@
 require_once __DIR__ . '/vendor/autoload.php';
 use App\Services\DatabaseService;
 
-$service = DatabaseService::getInstance();
-$pdo = $service->client();
+try {
+    $service = App\Services\DatabaseService::getInstance();
+} catch (Exception $e) {
+    error_log("Migration: DB init failed: " . $e->getMessage());
+    // choose to exit non-zero or return gracefully; here we exit but not crash the container startup
+    exit(0);
+}
 
 $tables = [
     'customers' => [
