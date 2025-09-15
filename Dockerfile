@@ -1,5 +1,5 @@
 # Use the PHP 8.3 + Apache Bookworm image
-FROM php:8.3-apache-bookworm-slim
+FROM php:8.3
 
 ENV PORT=8080 \
     COMPOSER_ALLOW_SUPERUSER=1 \
