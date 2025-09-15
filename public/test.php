@@ -1,5 +1,5 @@
 <?php
-// public/test.php - Updated to work with the simplified DatabaseService + backwards-compatible
+// public/test.php - Updated to work with MySQL and simplified DatabaseService
 ?>
 <!doctype html>
 <html lang="en">
@@ -132,7 +132,7 @@
         echo "<p class='warning'>⚠️ .env file not found or composer unavailable</p>";
     }
 
-    // --- try to initialize database service in a backwards-compatible way ---
+    // --- try to initialize database service ---
     $dbHealthy = false;
     $clientType = 'none';
     $client = null;
@@ -143,22 +143,8 @@
         try {
             // Get the service instance
             $service = App\Services\DatabaseService::getInstance();
-
-            // Determine client/provider
-            if (method_exists($service, 'client')) {
-                $client = $service->client(); // new simplified API returns MongoClient wrapper
-            } else {
-                // older API might return DB-like instance or provide methods on service directly
-                $client = $service;
-            }
-
-            // Try to detect client type/name
-            if (method_exists($service, 'getClientType')) {
-                $clientType = $service->getClientType();
-            } elseif (is_object($client)) {
-                $clientType = get_class($client);
-            }
-
+            $client = $service->client(); // Expect PDO instance
+            $clientType = get_class($client); // Should be PDO
         } catch (Exception $e) {
             $errors[] = "Service init failed: " . $e->getMessage();
         }
@@ -169,90 +155,53 @@
     // --- Database block output ---
     echo "<h2>📊 Database Connection Test</h2>";
 
-    if ($client && is_object($client)) {
+    if ($client && is_object($client) && $client instanceof PDO) {
         echo "<div class='status-box status-success'><h3>Database client initialized</h3>";
         echo "<p><strong>Client:</strong> " . htmlspecialchars($clientType) . "</p>";
 
-        // Ping (try multiple strategies depending on available methods)
+        // Ping MySQL
         $pingOk = false;
         try {
-            if (method_exists($client, 'ping')) {
-                $pingOk = (bool) $client->ping();
-            } elseif (method_exists($service, 'ping')) {
-                $pingOk = (bool) $service->ping();
-            } else {
-                // fallback: attempt a small operation that should exist
-                if (method_exists($client, 'listCollections')) {
-                    $cols = $client->listCollections();
-                    $pingOk = is_array($cols);
-                } else {
-                    $pingOk = false;
-                }
-            }
+            $stmt = $client->query('SELECT 1');
+            $pingOk = $stmt !== false && $stmt->fetchColumn() === '1';
         } catch (Exception $e) {
             $errors[] = "Ping error: " . $e->getMessage();
-            $pingOk = false;
         }
 
         if ($pingOk) {
             $dbHealthy = true;
             echo "<p><strong>Connection status:</strong> <span class='success'>CONNECTED</span></p>";
 
-            // run a small operations test (insert/find/count/delete) — only if methods exist
+            // Run a small operations test (insert/select/count/delete)
             echo "<h4>Testing basic operations</h4>";
             try {
-                $insertResult = null;
+                // Insert
+                $stmt = $client->prepare("INSERT INTO system_settings (test_type, timestamp, random) VALUES (:test_type, :timestamp, :random)");
+                $result = $stmt->execute([
+                    'test_type' => 'connection_test',
+                    'timestamp' => time(),
+                    'random' => uniqid()
+                ]);
+                echo "<p><strong>Insert:</strong> " . ($result ? "✅ PASS" : "❌ FAIL") . "</p>";
 
-                // prefer insertOne on client, else on service
-                if (method_exists($client, 'insertOne')) {
-                    $insertResult = $client->insertOne('system_settings', [
-                        'test_type' => 'connection_test',
-                        'timestamp' => time(),
-                        'random' => uniqid()
-                    ]);
-                } elseif (method_exists($service, 'insertOne')) {
-                    $insertResult = $service->insertOne('system_settings', [
-                        'test_type' => 'connection_test',
-                        'timestamp' => time(),
-                        'random' => uniqid()
-                    ]);
-                }
+                // Select
+                $stmt = $client->prepare("SELECT * FROM system_settings WHERE test_type = :test_type LIMIT 1");
+                $stmt->execute(['test_type' => 'connection_test']);
+                $found = $stmt->fetch(PDO::FETCH_ASSOC);
+                echo "<p><strong>Find:</strong> " . ($found ? "✅ PASS" : "❌ FAIL") . "</p>";
 
-                if ($insertResult && (isset($insertResult['insertedCount']) ? $insertResult['insertedCount'] === 1 : true)) {
-                    echo "<p><strong>Insert:</strong> ✅ PASS</p>";
+                // Count
+                $stmt = $client->prepare("SELECT COUNT(*) FROM system_settings WHERE test_type = :test_type");
+                $stmt->execute(['test_type' => 'connection_test']);
+                $count = $stmt->fetchColumn();
+                echo "<p><strong>Count:</strong> " . ($count >= 1 ? "✅ PASS ({$count})" : "❌ FAIL") . "</p>";
 
-                    // findOne
-                    $found = null;
-                    if (method_exists($client, 'findOne')) {
-                        $found = $client->findOne('system_settings', ['test_type' => 'connection_test']);
-                    } elseif (method_exists($service, 'findOne')) {
-                        $found = $service->findOne('system_settings', ['test_type' => 'connection_test']);
-                    }
-
-                    echo "<p><strong>Find:</strong> " . ($found ? "✅ PASS" : "❌ FAIL") . "</p>";
-
-                    // count
-                    $count = null;
-                    if (method_exists($client, 'count')) {
-                        $count = $client->count('system_settings', ['test_type' => 'connection_test']);
-                    } elseif (method_exists($service, 'count')) {
-                        $count = $service->count('system_settings', ['test_type' => 'connection_test']);
-                    }
-                    echo "<p><strong>Count:</strong> " . (($count !== null && $count >= 1) ? "✅ PASS ({$count})" : "❌ FAIL") . "</p>";
-
-                    // cleanup (deleteMany)
-                    if (method_exists($client, 'deleteMany')) {
-                        $client->deleteMany('system_settings', ['test_type' => 'connection_test']);
-                    } elseif (method_exists($service, 'deleteMany')) {
-                        $service->deleteMany('system_settings', ['test_type' => 'connection_test']);
-                    }
-                } else {
-                    echo "<p><strong>Insert:</strong> ❌ SKIPPED/FAILED (method not available or insert failed)</p>";
-                }
+                // Cleanup
+                $stmt = $client->prepare("DELETE FROM system_settings WHERE test_type = :test_type");
+                $stmt->execute(['test_type' => 'connection_test']);
             } catch (Exception $e) {
                 echo "<p class='error'>❌ Operations test error: " . htmlspecialchars($e->getMessage()) . "</p>";
             }
-
         } else {
             echo "<p><strong>Connection status:</strong> <span class='error'>FAILED</span></p>";
         }
@@ -270,11 +219,11 @@
     echo "<h2>⚙️ Environment Configuration</h2>";
     echo "<table><tr><th>Variable</th><th>Value</th><th>Status</th></tr>";
 
-    $important = ['APP_ENV', 'APP_DEBUG', 'MONGODB_URI', 'DB_DATABASE', 'MAIL_HOST', 'MAIL_PORT', 'JWT_SECRET', 'CORS_ALLOWED_ORIGINS'];
+    $important = ['APP_ENV', 'APP_DEBUG', 'MYSQL_HOST', 'MYSQL_DATABASE', 'MAIL_HOST', 'MAIL_PORT', 'JWT_SECRET', 'CORS_ALLOWED_ORIGINS'];
     foreach ($important as $v) {
         $val = getenv($v);
         $isSet = ($val !== false && $val !== null && $val !== '');
-        $display = $isSet ? (in_array($v, ['JWT_SECRET', 'MONGODB_URI']) ? '••••••••' : htmlspecialchars($val)) : 'Not set';
+        $display = $isSet ? (in_array($v, ['JWT_SECRET', 'MYSQL_PASSWORD']) ? '••••••••' : htmlspecialchars($val)) : 'Not set';
         $status = $isSet ? '✅ Set' : '❌ Missing';
         echo "<tr><td><strong>$v</strong></td><td>$display</td><td>$status</td></tr>";
     }

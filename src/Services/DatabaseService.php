@@ -1,19 +1,21 @@
 <?php
 namespace App\Services;
 
-use App\Database\MongoClient;
+use App\Database\MySQLClient;
 use Exception;
 
 class DatabaseService
 {
     private static ?self $instance = null;
-    private MongoClient $dbClient;
+    private MySQLClient $dbClient;
 
     private function __construct()
     {
-        $uri = getenv('MONGODB_URI') ?: $this->buildUriFromEnv();
-        $db = getenv('DB_DATABASE') ?: $this->extractDbFromUri($uri) ?: 'bank_loan_db';
-        $this->dbClient = new MongoClient($uri, $db);
+        $host = getenv('MYSQL_HOST') ?: 'mysql';
+        $database = getenv('MYSQL_DATABASE') ?: 'bank_loan_db';
+        $user = getenv('MYSQL_USER') ?: 'devuser';
+        $password = getenv('MYSQL_PASSWORD') ?: 'devpass';
+        $this->dbClient = new MySQLClient($host, $database, $user, $password);
     }
 
     public static function getInstance(): self
@@ -21,31 +23,9 @@ class DatabaseService
         return self::$instance ??= new self();
     }
 
-    public function client(): MongoClient
+    public function client(): MySQLClient
     {
         return $this->dbClient;
-    }
-
-    private function buildUriFromEnv(): string
-    {
-        $host = getenv('DB_HOST') ?: 'localhost';
-        $port = getenv('MONGO_PORT') ?: '27017';
-        $user = getenv('MONGO_INITDB_ROOT_USERNAME');
-        $pass = getenv('MONGO_INITDB_ROOT_PASSWORD');
-        $db = getenv('DB_DATABASE') ?: 'bank_loan_db';
-        if ($user && $pass) {
-            return "mongodb://{$user}:{$pass}@{$host}:{$port}/{$db}?authSource=admin";
-        }
-        return "mongodb://{$host}:{$port}/{$db}";
-    }
-
-    private function extractDbFromUri(string $uri): ?string
-    {
-        // Try to get the database name after the first '/' and before '?'
-        if (preg_match('#mongodb(?:\+srv)?://[^/]+/([^?]+)#', $uri, $m)) {
-            return $m[1];
-        }
-        return null;
     }
 
     public function ping(): bool
@@ -53,29 +33,28 @@ class DatabaseService
         return $this->dbClient->ping();
     }
 
-
-    public function insertOne(string $collection, array $doc): array
+    public function insertOne(string $table, array $data): array
     {
-        return $this->dbClient->insertOne($collection, $doc);
+        return $this->dbClient->insertOne($table, $data);
     }
 
-    public function insertMany(string $collection, array $docs): array
+    public function insertMany(string $table, array $rows): array
     {
-        return $this->dbClient->insertMany($collection, $docs);
+        return $this->dbClient->insertMany($table, $rows);
     }
 
-    public function findOne(string $collection, array $filter, array $options = []): ?array
+    public function findOne(string $table, array $filter, array $options = []): ?array
     {
-        return $this->dbClient->findOne($collection, $filter, $options);
+        return $this->dbClient->findOne($table, $filter, $options);
     }
 
-    public function count(string $collection, array $filter = []): int
+    public function count(string $table, array $filter = []): int
     {
-        return $this->dbClient->count($collection, $filter);
+        return $this->dbClient->count($table, $filter);
     }
 
-    public function deleteMany(string $collection, array $filter): array
+    public function deleteMany(string $table, array $filter): array
     {
-        return $this->dbClient->deleteMany($collection, $filter);
+        return $this->dbClient->deleteMany($table, $filter);
     }
 }

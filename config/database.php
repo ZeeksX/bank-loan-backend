@@ -4,8 +4,8 @@ use App\Services\DatabaseService;
 
 try {
     $dbService = App\Services\DatabaseService::getInstance();
-    $GLOBALS['mongo'] = $dbService->client();
-    $GLOBALS['mongo_db_name'] = getenv('DB_DATABASE') ?: null;
+    $GLOBALS['mysql'] = $dbService->client(); 
+    $GLOBALS['mysql_db_name'] = getenv('MYSQL_DATABASE') ?: 'bank_loan_db';
 } catch (Exception $e) {
     error_log('Database init failed: ' . $e->getMessage());
     if (getenv('APP_DEBUG') === 'true') {
