@@ -4,6 +4,7 @@ namespace App\Database;
 use PDO;
 use PDOException;
 use Exception;
+use PDOStatement;
 
 class MySQLClient
 {
@@ -287,12 +288,12 @@ class MySQLClient
         }
     }
 
-    public function query(string $sql, array $params = []): array
+    public function query(string $sql, array $params = []): PDOStatement
     {
         try {
             $stmt = $this->client->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll();
+            return $stmt;
         } catch (PDOException $e) {
             throw new Exception("SQL query failed: " . $e->getMessage());
         }

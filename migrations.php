@@ -3,7 +3,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 use App\Services\DatabaseService;
 
 $service = DatabaseService::getInstance();
-$pdo = $service->client(); // Assume DatabaseService returns a PDO instance
+$pdo = $service->client();
 
 $tables = [
     'customers' => [
@@ -133,6 +133,16 @@ $tables = [
             UNIQUE (token)
         )",
     ],
+    'system_settings' => [
+        'create' => "CREATE TABLE IF NOT EXISTS system_settings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            test_type VARCHAR(50),
+            timestamp INT,
+            random VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )",
+    ],
 ];
 
 foreach ($tables as $name => $table) {
@@ -146,16 +156,20 @@ foreach ($tables as $name => $table) {
 }
 
 // Seed departments if absent
-$stmt = $pdo->query("SELECT COUNT(*) FROM departments");
-$count = $stmt->fetchColumn();
-if ($count === 0) {
-    $pdo->exec("INSERT INTO departments (name, description, created_at, updated_at) VALUES (
-        'Loan Department',
-        'Handles all loan-related operations',
-        NOW(),
-        NOW()
-    )");
-    echo "Seeded departments\n";
+try {
+    $stmt = $pdo->query("SELECT COUNT(*) FROM departments");
+    $count = $stmt->fetchColumn();
+    if ($count === 0) {
+        $pdo->exec("INSERT INTO departments (name, description, created_at, updated_at) VALUES (
+            'Loan Department',
+            'Handles all loan-related operations',
+            NOW(),
+            NOW()
+        )");
+        echo "Seeded departments\n";
+    }
+} catch (Exception $e) {
+    echo " ! Seeding departments failed: " . $e->getMessage() . "\n";
 }
 
 echo "Migrations finished.\n";
