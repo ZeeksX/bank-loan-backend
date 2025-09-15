@@ -277,4 +277,24 @@ class MySQLClient
             throw new Exception("Delete many failed: " . $e->getMessage());
         }
     }
+
+    public function exec(string $sql): int
+    {
+        try {
+            return $this->client->exec($sql);
+        } catch (PDOException $e) {
+            throw new Exception("SQL execution failed: " . $e->getMessage());
+        }
+    }
+
+    public function query(string $sql, array $params = []): array
+    {
+        try {
+            $stmt = $this->client->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            throw new Exception("SQL query failed: " . $e->getMessage());
+        }
+    }
 }
