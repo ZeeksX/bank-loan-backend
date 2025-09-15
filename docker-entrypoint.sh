@@ -16,6 +16,17 @@ update_apache_port() {
   fi
 }
 
+# Helper: update Apache document root if needed
+update_apache_document_root() {
+  if [ -n "$APACHE_DOCUMENT_ROOT" ] && [ "$APACHE_DOCUMENT_ROOT" != "/var/www/html" ]; then
+    echo "Setting Apache document root to $APACHE_DOCUMENT_ROOT"
+    # Update configuration files if they exist
+    for conf_file in /etc/apache2/sites-available/*.conf /etc/apache2/conf-available/*.conf /etc/apache2/apache2.conf; do
+      [ -f "$conf_file" ] && sed -ri "s|/var/www/html|${APACHE_DOCUMENT_ROOT}|g" "$conf_file" 2>/dev/null || true
+    done
+  fi
+}
+
 # Wait for MySQL to be reachable
 wait_for_mysql() {
   local timeout=${DB_WAIT_TIMEOUT:-60}
@@ -92,6 +103,9 @@ clear_cache() {
 
 # Main execution
 echo ">>> Container entrypoint starting"
+
+# Update Apache document root if specified
+update_apache_document_root
 
 # Set file permissions
 set_permissions
