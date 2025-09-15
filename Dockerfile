@@ -16,6 +16,10 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y apache2 libapache2-mod-php \
+ && a2enmod rewrite \
+ && rm -rf /var/lib/apt/lists/*
+
 # Copy Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -33,8 +37,6 @@ RUN mkdir -p storage/framework/{sessions,views,cache} storage/app/public bootstr
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
  && chown -R www-data:www-data /var/www/html
-
-RUN a2enmod rewrite
 
 EXPOSE ${PORT}
 
