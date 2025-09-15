@@ -16,9 +16,10 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Update Apache document root (vhosts exist in this image)
-RUN sed -ri "s|/var/www/html|${APACHE_DOCUMENT_ROOT}|g" /etc/apache2/sites-available/*.conf \
- && sed -ri "s|/var/www/|${APACHE_DOCUMENT_ROOT}|g" /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# safer document root replacement (only change DocumentRoot and Directory directives)
+RUN sed -ri "s|DocumentRoot /var/www/html|DocumentRoot ${APACHE_DOCUMENT_ROOT}|g" /etc/apache2/sites-available/*.conf \
+ && sed -ri "s|<Directory /var/www/html>|<Directory ${APACHE_DOCUMENT_ROOT}>|g" /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
+ && sed -ri "s|<VirtualHost \*:80>|<VirtualHost *:${PORT}>|g" /etc/apache2/sites-available/*.conf || true
 
 # Copy Composer binary from official image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -32,6 +33,11 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-d
 
 # Copy application
 COPY . /var/www/html
+
+# ensure Public dir exists and permissions set
+RUN mkdir -p /var/www/html/public \
+ && chown -R www-data:www-data /var/www/html \
+ && chmod -R 755 /var/www/html
 
 # Create app directories & set permissions (Laravel-like)
 RUN mkdir -p storage/framework/{sessions,views,cache} storage/app/public bootstrap/cache \
